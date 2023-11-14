@@ -271,7 +271,11 @@ Write-Output $output.Returns.LicenseData
 # Start license provisioning runbook
 $resourceGroupName = "RG-Dev"
 $automationAccountName = "Onboarding-Wynnefield"
-Start-AzAutomationRunbook -Name "ProvisionM365License" -Parameters $output `
+$provisioningParams = [System.Collections.IDictionary]@{
+    InputParameters = $output.Parameters
+    Returns         = $output.Returns
+}
+Start-AzAutomationRunbook -Name "ProvisionM365License" -Parameters $provisioningParams `
     -ResourceGroupName $resourceGroupName -AutomationAccountName $automationAccountName
 
 Disconnect-MgGraph | Out-Null

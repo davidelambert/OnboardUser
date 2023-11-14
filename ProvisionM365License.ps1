@@ -1,6 +1,9 @@
 param(
     [Parameter(Mandatory = $true)]
-    [object]$OnboardUserData
+    [object]$InputParameters,
+
+    [Parameter(Mandatory = $true)]
+    [object]$Returns
 )
 
 Import-Module OnboardingUtilities
@@ -8,11 +11,11 @@ Import-Module OnboardingUtilities
 Connect-AzAccount -Identity -Subscription "Integrid Development" | Out-Null
 Connect-MgGraph -AppId $AppId -TenantId $TenantId -CertificateThumbprint $CertificateThumbprint -NoWelcome
 
-foreach ($key in $OnboardUserData.Parameters.Keys) {
+foreach ($key in $InputParameters.Keys) {
     if (Test-Path variable:$key) {
         Remove-Variable -Name $key
     }
-    New-Variable -Name $key -Value $OnboardUserData.Parameters[$key]
+    New-Variable -Name $key -Value $InputParameters[$key]
     Write-Output (Get-Variable -Name $key).Name "=" $key
 }
 
