@@ -268,8 +268,11 @@ Write-Output $output.Returns.UserData
 Write-Output ("`nLicense Data`n" + ("=" * 24))
 Write-Output $output.Returns.LicenseData
 
-
-
+# Start license provisioning runbook
+$resourceGroupName = "RG-Dev"
+$automationAccountName = "Onboarding-Wynnefield"
+Start-AzAutomationRunbook -Name "ProvisionM365License" -Parameters $output `
+    -ResourceGroupName $resourceGroupName -AutomationAccountName $automationAccountName
 
 Disconnect-MgGraph | Out-Null
 Disconnect-AzAccount | Out-Null
