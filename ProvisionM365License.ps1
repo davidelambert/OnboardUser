@@ -22,17 +22,18 @@ foreach ($sn in $pax8SecretNames) {
     $pax8Credentials.Add($name, $value)
 }
 if ($pax8Credentials.Count -eq 0) {
-    throw "Pax8 API credentials not found"
+    Write-Error "Pax8 API credentials not found" -ErrorAction Stop
 }
 
 
 if ($Returns.LicenseData.ConsumedUnits -lt $Returns.LicenseData.PrepaidUnits.Enabled) {
     $respAssignLicense = Set-MgUserLicense -UserId $Returns.UserPrincipalName -AddLicenses @{SkuId = $Returns.LicenseData.SkuId } -RemoveLicenses @()
     if ($null -eq $respAssignLicense) {
-        Write-Output "=> Failed to assign license"
+        Write-Error "Failed to assign license `"$($InputParameters.LicenseName)`" to $($Returns.UserPrincipalName)" `
+            -ErrorAction Stop
     }
     else {
-        Write-Output "=> License assigned to user $($respAssignLicense.DisplayName)"
+        Write-Output "=> License `"$($InputParameters.LicenseName)`" assigned to $($respAssignLicense.DisplayName)"
     }
 }
 else {
@@ -43,7 +44,7 @@ else {
     $qtyIncremented = $subscription.quantity + 1
     $respAddLicense = Add-Pax8Subscription -SubscriptionId $subscription.id -Quantity $qtyIncremented -Token $token
     if ($null -eq $respAddLicense) {
-        Write-Output "=> Failed to add license to PAX8 subscription"
+        Write-Error "Failed to add license to PAX8 subscription" -ErrorAction Stop
     }
     else {
         Write-Output "=> License added to PAX8 subscription id: $($respAddLicense.id)"
@@ -57,10 +58,11 @@ else {
     while ($l.ConsumedUnits -ge $l.PrepaidUnits.Enabled)
     $respAssignLicense = Set-MgUserLicense -UserId $Returns.UserPrincipalName -AddLicenses @{SkuId = $Returns.LicenseData.SkuId } -RemoveLicenses @()
     if ($null -eq $respAssignLicense) {
-        Write-Output "=> Failed to assign license"
+        Write-Error "Failed to assign license `"$($InputParameters.LicenseName)`" to $($Returns.UserPrincipalName)" `
+            -ErrorAction Stop
     }
     else {
-        Write-Output "=> License assigned to user $($respAssignLicense.DisplayName)"
+        Write-Output "=> License `"$($InputParameters.LicenseName)`" assigned to $($respAssignLicense.DisplayName)"
     }
 }
 
