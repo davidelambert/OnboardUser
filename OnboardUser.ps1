@@ -240,6 +240,7 @@ $output = [PSCustomObject]@{
         Location              = $Location
         JobTitle              = $JobTitle
         Equipment             = $Equipment
+        LicenseName           = $LicenseName
         PasswordSender        = $PasswordSender
         PasswordRecipient     = $PasswordRecipient
     }
