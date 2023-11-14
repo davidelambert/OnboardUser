@@ -9,10 +9,7 @@ param(
 Import-Module OnboardingUtilities
 
 Connect-AzAccount -Identity -Subscription "Integrid Development" | Out-Null
-Write-Output $InputParameters.AppId
-Write-Output $InputParameters.TenantId
-Write-Output $InputParameters.CertificateThumbprint
-# Connect-MgGraph -AppId $InputParamters.AppId -TenantId $InputParameters.TenantId -CertificateThumbprint $InputParameters.CertificateThumbprint -NoWelcome
+Connect-MgGraph -AppId $InputParamters.AppId -TenantId $InputParameters.TenantId -CertificateThumbprint $InputParameters.CertificateThumbprint -NoWelcome
 
 
 # $pax8SecretNames = @("Pax8-client-id", "Pax8-client-secret")
