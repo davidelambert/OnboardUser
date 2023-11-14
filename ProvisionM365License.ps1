@@ -8,63 +8,61 @@ param(
 
 Import-Module OnboardingUtilities
 
-foreach ($key in $InputParameters.Keys) {
-    if (Test-Path variable:$key) {
-        Remove-Variable -Name $key
-    }
-    New-Variable -Name $key -Value $InputParameters[$key]
+Connect-AzAccount -Identity -Subscription "Integrid Development" | Out-Null
+Connect-MgGraph -AppId $InputParamters.AppId -TenantId $InputParameters.TenantId -CertificateThumbprint $InputParameters.CertificateThumbprint -NoWelcome
+
+
+$pax8SecretNames = @("Pax8-client-id", "Pax8-client-secret")
+$pax8Credentials = @{}
+foreach ($sn in $pax8SecretNames) {
+    $name = $sn.Replace("Pax8-", "")
+    $name = $name.Replace("-", "_")
+    $secret = Get-AzKeyVaultSecret -VaultName "IntegridAPIKeys" -Name $sn
+    $value = ConvertFrom-SecureString $secret.SecretValue -AsPlainText
+    $pax8Credentials.Add($name, $value)
+}
+if ($pax8Credentials.Count -eq 0) {
+    throw "Pax8 API credentials not found"
 }
 
-foreach ($key in $Returns.Keys) {
-    if (Test-Path variable:$key) {
-        Remove-Variable -Name $key
+
+if ($Returns.LicenseData.ConsumedUnits -lt $Returns.LicenseData.PrepaidUnits.Enabled) {
+    $respAssignLicense = Set-MgUserLicense -UserId $Returns.UserPrincipalName -AddLicenses @{SkuId = $Returns.LicenseData.SkuId } -RemoveLicenses @()
+    if ($null -eq $respAssignLicense) {
+        Write-Output "=> Failed to assign license"
     }
-    New-Variable -Name $key -Value $Returns[$key]
+    else {
+        Write-Output "=> License assigned to user $($respAssignLicense.DisplayName)"
+    }
 }
-
-Get-Variable
-
-# Connect-AzAccount -Identity -Subscription "Integrid Development" | Out-Null
-# Connect-MgGraph -AppId $AppId -TenantId $TenantId -CertificateThumbprint $CertificateThumbprint -NoWelcome
-
-
-# if ($licenseData.ConsumedUnits -lt $licenseData.PrepaidUnits.Enabled) {
-#     $respAssignLicense = Set-MgUserLicense -UserId $upn -AddLicenses @{SkuId = $licenseData.SkuId } -RemoveLicenses @()
-#     if ($null -eq $respAssignLicense) {
-#         Write-Output "=> Failed to assign license"
-#     }
-#     else {
-#         Write-Output "=> License assigned to user $($respAssignLicense.DisplayName)"
-#     }
-# }
-# else {
-#     $token = Get-Pax8Token $Pax8Credentials
-#     $companyId = Get-Pax8CompanyId -CompanyName "$CompanyName" -Token $token
-#     $productId = Search-Pax8ProductIds $LicenseName
-#     $subscription = Get-Pax8Subscription -CompanyId $companyId -ProductId $productId -Token $token
-#     $qtyIncremented = $subscription.quantity + 1
-#     $respAddLicense = Add-Pax8Subscription -SubscriptionId $subscription.id -Quantity $qtyIncremented -Token $token
-#     if ($null -eq $respAddLicense) {
-#         Write-Output "=> Failed to add license to PAX8 subscription"
-#     }
-#     else {
-#         Write-Output "=> License added to PAX8 subscription id: $($respAddLicense.id)"d
-#     }
+else {
+    $token = Get-Pax8Token -Credentials $pax8Credentials
+    $companyId = Get-Pax8CompanyId -CompanyName $InputParameters.CompanyName -Token $token
+    $productId = Search-Pax8ProductIds $InputParameters.LicenseName
+    $subscription = Get-Pax8Subscription -CompanyId $companyId -ProductId $productId -Token $token
+    $qtyIncremented = $subscription.quantity + 1
+    $respAddLicense = Add-Pax8Subscription -SubscriptionId $subscription.id -Quantity $qtyIncremented -Token $token
+    if ($null -eq $respAddLicense) {
+        Write-Output "=> Failed to add license to PAX8 subscription"
+    }
+    else {
+        Write-Output "=> License added to PAX8 subscription id: $($respAddLicense.id)"
+    }
     
-#     # Check license quantities in M365 every 30 seconds until new one shows up.
-#     do {
-#         Start-Sleep -Seconds 30
-#         $l = Get-LicenseData $LicenseName
-#     }
-#     while ($l.ConsumedUnits -ge $l.PrepaidUnits.Enabled)
-#     $respAssignLicense = Set-MgUserLicense -UserId $upn -AddLicenses @{SkuId = $licenseData.SkuId } -RemoveLicenses @()
-#     if ($null -eq $respAssignLicense) {
-#         Write-Output "=> Failed to assign license"
-#     }
-#     else {
-#         Write-Output "=> License assigned to user $($respAssignLicense.DisplayName)"
-#     }
-# }
+    # Check license quantities in M365 every 30 seconds until new one shows up.
+    do {
+        Start-Sleep -Seconds 30
+        $l = Get-LicenseData $InputParameters.LicenseName
+    }
+    while ($l.ConsumedUnits -ge $l.PrepaidUnits.Enabled)
+    $respAssignLicense = Set-MgUserLicense -UserId $Returns.UserPrincipalName -AddLicenses @{SkuId = $Returns.LicenseData.SkuId } -RemoveLicenses @()
+    if ($null -eq $respAssignLicense) {
+        Write-Output "=> Failed to assign license"
+    }
+    else {
+        Write-Output "=> License assigned to user $($respAssignLicense.DisplayName)"
+    }
+}
 
 
 # # Pass selected output as parameters to separate client-specific runbook
