@@ -89,7 +89,7 @@ $resourceGroupName = "RG-Dev"
 $automationAccountName = "Onboarding-Wynnefield"
 $startTime = (Get-Date).AddMinutes(10).ToString("yyyy-MM-ddTHH:mm:ss")
 
-$scheduleName = "$FirstName$LastName"
+$scheduleName = $InputParameters.FirstName + $InputParameters.LastName
 $schedule = New-AzAutomationSchedule -Name $scheduleName -StartTime $startTime -TimeZone "America/New_York" -OneTime `
     -ResourceGroupName $resourceGroupName -AutomationAccountName $automationAccountName 
 Write-Output ("One-Time Schedule`n" + ("=" * 24))
