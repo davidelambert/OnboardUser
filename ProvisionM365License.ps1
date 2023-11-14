@@ -8,8 +8,8 @@ param(
 
 Import-Module OnboardingUtilities
 
-Connect-AzAccount -Identity -Subscription "Integrid Development" | Out-Null
-Connect-MgGraph -AppId $AppId -TenantId $TenantId -CertificateThumbprint $CertificateThumbprint -NoWelcome
+# Connect-AzAccount -Identity -Subscription "Integrid Development" | Out-Null
+# Connect-MgGraph -AppId $AppId -TenantId $TenantId -CertificateThumbprint $CertificateThumbprint -NoWelcome
 
 foreach ($key in $InputParameters.Keys) {
     if (Test-Path variable:$key) {
