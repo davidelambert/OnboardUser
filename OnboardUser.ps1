@@ -224,43 +224,43 @@ else {
 
 # License provisioning
 $licenseData = Get-LicenseData $licenseName
-# if ($licenseData.ConsumedUnits -lt $licenseData.PrepaidUnits.Enabled) {
-#     $respAssignLicense = Set-MgUserLicense -UserId $upn -AddLicenses @{SkuId = $licenseData.SkuId } -RemoveLicenses @()
-#     if ($null -eq $respAssignLicense) {
-#         Write-Output "=> Failed to assign license"
-#     }
-#     else {
-#         Write-Output "=> License assigned to user $($respAssignLicense.DisplayName)"
-#     }
-# }
-# else {
-#     $token = Get-Pax8Token $Pax8Credentials
-#     $companyId = Get-Pax8CompanyId -CompanyName "$CompanyName" -Token $token
-#     $productId = Search-Pax8ProductIds $licenseName
-#     $subscription = Get-Pax8Subscription -CompanyId $companyId -ProductId $productId -Token $token
-#     $qtyIncremented = $subscription.quantity + 1
-#     $respAddLicense = Add-Pax8Subscription -SubscriptionId $subscription.id -Quantity $qtyIncremented -Token $token
-#     if ($null -eq $respAddLicense) {
-#         Write-Output "=> Failed to add license to PAX8 subscription"
-#     }
-#     else {
-#         Write-Output "=> License added to PAX8 subscription id: $($respAddLicense.id)"d
-#     }
+if ($licenseData.ConsumedUnits -lt $licenseData.PrepaidUnits.Enabled) {
+    $respAssignLicense = Set-MgUserLicense -UserId $upn -AddLicenses @{SkuId = $licenseData.SkuId } -RemoveLicenses @()
+    if ($null -eq $respAssignLicense) {
+        Write-Output "=> Failed to assign license"
+    }
+    else {
+        Write-Output "=> License assigned to user $($respAssignLicense.DisplayName)"
+    }
+}
+else {
+    $token = Get-Pax8Token $Pax8Credentials
+    $companyId = Get-Pax8CompanyId -CompanyName "$CompanyName" -Token $token
+    $productId = Search-Pax8ProductIds $licenseName
+    $subscription = Get-Pax8Subscription -CompanyId $companyId -ProductId $productId -Token $token
+    $qtyIncremented = $subscription.quantity + 1
+    $respAddLicense = Add-Pax8Subscription -SubscriptionId $subscription.id -Quantity $qtyIncremented -Token $token
+    if ($null -eq $respAddLicense) {
+        Write-Output "=> Failed to add license to PAX8 subscription"
+    }
+    else {
+        Write-Output "=> License added to PAX8 subscription id: $($respAddLicense.id)"d
+    }
     
-#     # Check license quantities in M365 every 30 seconds until new one shows up.
-#     do {
-#         Start-Sleep -Seconds 30
-#         $l = Get-LicenseData $licenseName
-#     }
-#     while ($l.ConsumedUnits -ge $l.PrepaidUnits.Enabled)
-#     $respAssignLicense = Set-MgUserLicense -UserId $upn -AddLicenses @{SkuId = $licenseData.SkuId } -RemoveLicenses @()
-#     if ($null -eq $respAssignLicense) {
-#         Write-Output "=> Failed to assign license"
-#     }
-#     else {
-#         Write-Output "=> License assigned to user $($respAssignLicense.DisplayName)"
-#     }
-# }
+    # Check license quantities in M365 every 30 seconds until new one shows up.
+    do {
+        Start-Sleep -Seconds 30
+        $l = Get-LicenseData $licenseName
+    }
+    while ($l.ConsumedUnits -ge $l.PrepaidUnits.Enabled)
+    $respAssignLicense = Set-MgUserLicense -UserId $upn -AddLicenses @{SkuId = $licenseData.SkuId } -RemoveLicenses @()
+    if ($null -eq $respAssignLicense) {
+        Write-Output "=> Failed to assign license"
+    }
+    else {
+        Write-Output "=> License assigned to user $($respAssignLicense.DisplayName)"
+    }
+}
 
 
 # Output ==================
