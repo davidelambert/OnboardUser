@@ -67,36 +67,36 @@ else {
 }
 
 
-# # Pass selected output as parameters to separate client-specific runbook
-# $jobTitleParams = [System.Collections.IDictionary]@{
-#     AppId                 = $AppId
-#     TenantId              = $TenantId
-#     CertificateThumbprint = $CertificateThumbprint
-#     FirstName             = $FirstName
-#     LastName              = $LastName
-#     UPN                   = $upn
-#     JobTitle              = $JobTitle
-#     Location              = $Location
-#     CommunityEmails       = $communityEmails
-#     Equipment             = $Equipment
-#     AutoTaskTicketId      = $respNewTicket.ItemId
-# }
-# Write-Output ("`nStarting JobTitleTasks runbook with parameters:`n" + ("=" * 48))
-# Write-Output $jobTitleParams
+# Pass selected output as parameters to separate client-specific runbook
+$jobTitleParams = [System.Collections.IDictionary]@{
+    AppId                 = $InputParameters.AppId
+    TenantId              = $InputParameters.TenantId
+    CertificateThumbprint = $InputParameters.CertificateThumbprint
+    FirstName             = $InputParameters.FirstName
+    LastName              = $InputParameters.LastName
+    JobTitle              = $InputParameters.JobTitle
+    Location              = $InputParameters.Location
+    Equipment             = $InputParameters.Equipment
+    UPN                   = $Returns.UserPrincipalName
+    CommunityEmails       = $Returns.CommunityEmailList
+    AutoTaskTicketId      = $Returns.AutoTaskTicketId
+}
+Write-Output ("`nStarting JobTitleTasks runbook with parameters:`n" + ("=" * 48))
+Write-Output $jobTitleParams
 
-# # Schedule JobTitleTasks ================
-# $resourceGroupName = "RG-Dev"
-# $automationAccountName = "Onboarding-Wynnefield"
-# $startTime = (Get-Date).AddMinutes(7).ToString("yyyy-MM-ddTHH:mm:ss")
+# Schedule JobTitleTasks ================
+$resourceGroupName = "RG-Dev"
+$automationAccountName = "Onboarding-Wynnefield"
+$startTime = (Get-Date).AddMinutes(10).ToString("yyyy-MM-ddTHH:mm:ss")
 
-# $scheduleName = "$FirstName$LastName"
-# $schedule = New-AzAutomationSchedule -Name $scheduleName -StartTime $startTime -TimeZone "America/New_York" -OneTime `
-#     -ResourceGroupName $resourceGroupName -AutomationAccountName $automationAccountName 
-# Write-Output ("One-Time Schedule`n" + ("=" * 24))
-# Write-Output $schedule
+$scheduleName = "$FirstName$LastName"
+$schedule = New-AzAutomationSchedule -Name $scheduleName -StartTime $startTime -TimeZone "America/New_York" -OneTime `
+    -ResourceGroupName $resourceGroupName -AutomationAccountName $automationAccountName 
+Write-Output ("One-Time Schedule`n" + ("=" * 24))
+Write-Output $schedule
 
-# $runbookName = "JobTitleTasks"
-# $scheduleJob = Register-AzAutomationScheduledRunbook -RunbookName $runbookName -ScheduleName $scheduleName `
-#     -Parameters $jobTitleParams -ResourceGroupName $resourceGroupName -AutomationAccountName $automationAccountName
-# Write-Output ("Scheduled Runbook Job`n" + ("=" * 24))
-# Write-Output $scheduleJob
+$runbookName = "JobTitleTasks"
+$scheduleJob = Register-AzAutomationScheduledRunbook -RunbookName $runbookName -ScheduleName $scheduleName `
+    -Parameters $jobTitleParams -ResourceGroupName $resourceGroupName -AutomationAccountName $automationAccountName
+Write-Output ("Scheduled Runbook Job`n" + ("=" * 24))
+Write-Output $scheduleJob
