@@ -8,23 +8,24 @@ param(
 
 Import-Module OnboardingUtilities
 
+foreach ($key in $InputParameters.Keys) {
+    if (Test-Path variable:$key) {
+        Remove-Variable -Name $key
+    }
+    New-Variable -Name $key -Value $InputParameters[$key]
+}
 
-$InputParameters.GetType()
-$InputParameters
+foreach ($key in $Returns.Keys) {
+    if (Test-Path variable:$key) {
+        Remove-Variable -Name $key
+    }
+    New-Variable -Name $key -Value $Returns[$key]
+}
 
-$Returns.GetType()
-$Returns
+Get-Variable
 
 # Connect-AzAccount -Identity -Subscription "Integrid Development" | Out-Null
 # Connect-MgGraph -AppId $AppId -TenantId $TenantId -CertificateThumbprint $CertificateThumbprint -NoWelcome
-
-# foreach ($key in $InputParameters.Keys) {
-#     if (Test-Path variable:$key) {
-#         Remove-Variable -Name $key
-#     }
-#     New-Variable -Name $key -Value $InputParameters[$key]
-# }
-
 
 
 # if ($licenseData.ConsumedUnits -lt $licenseData.PrepaidUnits.Enabled) {
