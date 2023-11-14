@@ -16,7 +16,7 @@ foreach ($key in $InputParameters.Keys) {
         Remove-Variable -Name $key
     }
     New-Variable -Name $key -Value $InputParameters[$key]
-    Write-Output (Get-Variable -Name $key).Name "=" $key
+    Write-Output $key
 }
 
 
