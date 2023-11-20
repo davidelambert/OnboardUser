@@ -226,19 +226,20 @@ else {
 
 # License provisioning and JobTitleTasks scheduling ================
 $jobTitleParams = [System.Collections.IDictionary]@{
-    AppId                 = $AppId
-    TenantId              = $TenantId
-    CertificateThumbprint = $CertificateThumbprint
-    FirstName             = $FirstName
-    LastName              = $LastName
-    JobTitle              = $JobTitle
-    Location              = $Location
-    Equipment             = $Equipment
-    UPN                   = $upn
-    CommunityEmails       = $communityEmails
-    AutoTaskTicketId      = $respNewTicket.ItemId
-    LicenseName           = $LicenseName
-    CreatedBy             = $CreatedBy
+    AppId                   = $AppId
+    TenantId                = $TenantId
+    CertificateThumbprint   = $CertificateThumbprint
+    FirstName               = $FirstName
+    LastName                = $LastName
+    JobTitle                = $JobTitle
+    Location                = $Location
+    Equipment               = $Equipment
+    UPN                     = $upn
+    CommunityEmails         = $communityEmails
+    AutoTaskTicketId        = $respNewTicket.ItemId
+    CreatedBy               = $CreatedBy
+    LicenseName             = $LicenseName
+    LicenseApprovalRequired = $licenseApprovalRequired
 }
 
 $licenseData = Get-LicenseData $LicenseName
