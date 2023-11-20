@@ -277,14 +277,7 @@ else {
         "Content-Type" = "application/json"
     }
     $approvalBody = ConvertTo-Json $jobTitleParams
-    $respApproval = Invoke-RestMethod -Uri $ApprovalWebhookUrl -Method Post `
-        -Headers $approvalHeaders -Body $approvalBody
-    if ($null -eq $respApproval) {
-        Write-Error "Failed run OnboardingLicenseApproval Logic App" -ErrorAction Stop
-    }
-    else {
-        Write-Output "=> OnboardingLicenseApproval Logic App completed with response:`n$($respApproval)"
-    }
+    Invoke-RestMethod -Uri $ApprovalWebhookUrl -Method Post -Headers $approvalHeaders -Body $approvalBody
 }
 
 # Summary Output ==================
