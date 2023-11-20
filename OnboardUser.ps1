@@ -34,15 +34,18 @@ param(
     
     [Parameter(Mandatory = $false)]
     [string[]]$Equipment,
-
+    
     [Parameter(Mandatory = $true)]
-    [string]$LicenseName,
+    [string]$CreatedBy,
     
     [Parameter(Mandatory = $true)]
     [string]$PasswordSender,
     
     [Parameter(Mandatory = $true)]
-    [string]$PasswordRecipient
+    [string]$LicenseName,
+
+    [Parameter(Mandatory = $true)]
+    [string]$ApprovalWebhookUrl
 )
 
 Import-Module OnboardingUtilities
@@ -213,71 +216,121 @@ else {
 
 
 $respOts = Send-OTSPassword -EmployeeName "$FirstName $LastName" -Secret $pwProfile.Password `
-    -SenderEmail $PasswordSender -RecipientEmail $PasswordRecipient -Credentials $otsCredentials
+    -SenderEmail $PasswordSender -RecipientEmail $CreatedBy -Credentials $otsCredentials
 if ($respOts) {
-    Write-Output "=> OneTimeSecret password sent to $PasswordRecipient"
+    Write-Output "=> OneTimeSecret password sent to $CreatedBy"
 }
 else {
-    Write-Output "=> Failed to send OneTimeSecret password notification to $PasswordRecipient"
+    Write-Output "=> Failed to send OneTimeSecret password notification to $CreatedBy"
 }
 
-# License provisioning
+# License provisioning and JobTitleTasks scheduling ================
+$jobTitleParams = [System.Collections.IDictionary]@{
+    AppId                 = $AppId
+    TenantId              = $TenantId
+    CertificateThumbprint = $CertificateThumbprint
+    FirstName             = $FirstName
+    LastName              = $LastName
+    JobTitle              = $JobTitle
+    Location              = $Location
+    Equipment             = $Equipment
+    UPN                   = $upn
+    CommunityEmails       = $communityEmails
+    AutoTaskTicketId      = $respNewTicket.ItemId
+    LicenseName           = $LicenseName
+    CreatedBy             = $CreatedBy
+}
+
 $licenseData = Get-LicenseData $LicenseName
-
-
-# Output ==================
-$output = [PSCustomObject]@{
-    Parameters = @{
-        AppId                 = $AppId
-        TenantId              = $TenantId
-        CertificateThumbprint = $CertificateThumbprint
-        CompanyName           = $CompanyName
-        Domain                = $Domain
-        SpSiteName            = $SpSiteName
-        SpListName            = $SpListName
-        FirstName             = $FirstName
-        LastName              = $LastName
-        Location              = $Location
-        JobTitle              = $JobTitle
-        Equipment             = $Equipment
-        LicenseName           = $LicenseName
-        PasswordSender        = $PasswordSender
-        PasswordRecipient     = $PasswordRecipient
+if ($licenseData.ConsumedUnits -lt $licenseData.PrepaidUnits.Enabled) {
+    $licenseApprovalRequired = $false
+    $respAssignLicense = Set-MgUserLicense -UserId $upn -AddLicenses @{SkuId = $licenseData.SkuId } -RemoveLicenses @()
+    if ($null -eq $respAssignLicense) {
+        Write-Error "Failed to assign license `"$($LicenseName)`" to $($upn)" -ErrorAction Stop
     }
-    Returns    = @{
-        UserPrincipalName    = $upn
-        AutoTaskCompanyId    = $atCompanyId
-        HuduCompanyId        = $huduCompanyId
-        M365Location         = $m365Location
-        AutoTaskLocationId   = $companyLocationId
-        CommunityEmailList   = $communityEmails
-        UserData             = $respNewUser
-        AutoTaskTicketId     = $respNewTicket.ItemId
-        AutoTaskContactId    = $respNewContact.itemId
-        HuduPasswordId       = $respHuduPw.asset_password.id
-        OneTimeSecretSuccess = $respOts
-        LicenseData          = $licenseData
+    else {
+        Write-Output "=> License `"$($LicenseName)`" assigned to $($respAssignLicense.DisplayName)"
+    }
+
+    # Schedule JobTitleTasks ================
+    Write-Output ("`nScheduling JobTitleTasks runbook with parameters:`n" + ("=" * 48))
+    Write-Output $jobTitleParams
+    
+    $resourceGroupName = "RG-Dev"
+    $automationAccountName = "Onboarding-Wynnefield"
+    $startTime = (Get-Date).AddMinutes(10).ToString("yyyy-MM-ddTHH:mm:ss")
+    $scheduleName = $FirstName + $LastName
+    $schedule = New-AzAutomationSchedule -Name $scheduleName -StartTime $startTime -TimeZone "America/New_York" -OneTime `
+        -ResourceGroupName $resourceGroupName -AutomationAccountName $automationAccountName 
+    Write-Output ("One-Time Schedule`n" + ("=" * 32))
+    Write-Output $schedule
+    
+    $runbookName = "JobTitleTasks"
+    $scheduleJob = Register-AzAutomationScheduledRunbook -RunbookName $runbookName -ScheduleName $scheduleName `
+        -Parameters $jobTitleParams -ResourceGroupName $resourceGroupName -AutomationAccountName $automationAccountName
+    Write-Output ("Scheduled Runbook Job`n" + ("=" * 32))
+    Write-Output $scheduleJob
+}
+else {
+    $licenseApprovalRequired = $true
+    $approvalHeaders = @{
+        "Content-Type" = "application/json"
+    }
+    $approvalBody = ConvertTo-Json $jobTitleParams
+    $respApproval = Invoke-RestMethod -Uri $ApprovalWebhookUrl -Method Post `
+        -Headers $approvalHeaders -Body $approvalBody
+    if ($null -eq $respApproval) {
+        Write-Error "Failed run OnboardingLicenseApproval Logic App" -ErrorAction Stop
+    }
+    else {
+        Write-Output "=> OnboardingLicenseApproval Logic App completed with response:`n$($respApproval)"
     }
 }
 
-Write-Output ("`nParamter Inputs`n" + ("=" * 24))
-Write-Output $output.Parameters
-Write-Output ("`nReturns`n" + ("=" * 24))
-Write-Output $output.Returns
-Write-Output ("`nUser Data`n" + ("=" * 24))
-Write-Output $output.Returns.UserData
-Write-Output ("`nLicense Data`n" + ("=" * 24))
-Write-Output $output.Returns.LicenseData
-
-# Start license provisioning runbook
-$resourceGroupName = "RG-Dev"
-$automationAccountName = "Onboarding-Wynnefield"
-$provisioningParams = [System.Collections.IDictionary]@{
-    InputParameters = $output.Parameters
-    Returns         = $output.Returns
+# Summary Output ==================
+$InputParameters = @{
+    AppId                 = $AppId
+    TenantId              = $TenantId
+    CertificateThumbprint = $CertificateThumbprint
+    CompanyName           = $CompanyName
+    Domain                = $Domain
+    SpSiteName            = $SpSiteName
+    SpListName            = $SpListName
+    FirstName             = $FirstName
+    LastName              = $LastName
+    Location              = $Location
+    JobTitle              = $JobTitle
+    Equipment             = $Equipment
+    CreatedBy             = $CreatedBy
+    PasswordSender        = $PasswordSender
+    LicenseName           = $LicenseName
+    ApprovalWebhookUrl    = $ApprovalWebhookUrl
 }
-Start-AzAutomationRunbook -Name "ProvisionM365License" -Parameters $provisioningParams `
-    -ResourceGroupName $resourceGroupName -AutomationAccountName $automationAccountName
+
+$Outputs = @{
+    UserPrincipalName       = $upn
+    AutoTaskCompanyId       = $atCompanyId
+    HuduCompanyId           = $huduCompanyId
+    M365Location            = $m365Location
+    AutoTaskLocationId      = $companyLocationId
+    CommunityEmailList      = $communityEmails
+    UserData                = $respNewUser
+    AutoTaskTicketId        = $respNewTicket.ItemId
+    AutoTaskContactId       = $respNewContact.itemId
+    HuduPasswordId          = $respHuduPw.asset_password.id
+    OneTimeSecretSuccess    = $respOts
+    LicenseData             = $licenseData
+    LicenseApprovalRequired = $licenseApprovalRequired
+}
+
+Write-Output ("`nInput Parameters`n" + ("=" * 32))
+Write-Output $InputParameters
+Write-Output ("`nOutputs`n" + ("=" * 32))
+Write-Output $Outputs
+Write-Output ("`nLicense Approval Required`n" + ("=" * 32))
+Write-Output $Outputs.LicenseApprovalRequired
+Write-Output ("`nUser Data`n" + ("=" * 32))
+Write-Output $Outputs.UserData
 
 Disconnect-MgGraph | Out-Null
 Disconnect-AzAccount | Out-Null
