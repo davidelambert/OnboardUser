@@ -179,8 +179,10 @@ if ($null -eq $respNewTicket) {
     Write-Output "=> Failed to create ticket"
 }
 else {
-    Write-Output "=> AutoTask ticket created with Id: $($respNewTicket.ItemId)"
+    $ticketContent = (Get-AutoTaskTicket -Credentials $atCredentials -TicketId $respNewTicket.ItemId).item
+    Write-Output "=> Created AutoTask ticket number: $($ticketContent.ticketNumber)"
 }
+
 
 
 $respNewUser = New-MgUser -AccountEnabled -DisplayName "$FirstName $LastName" -MailNickname "$FistName$LastName" `
@@ -237,6 +239,7 @@ $jobTitleParams = [System.Collections.IDictionary]@{
     UPN                   = $upn
     CommunityEmails       = $communityEmails
     AutoTaskTicketId      = $respNewTicket.ItemId
+    AutoTaskTicketNumber  = $ticketContent.ticketNumber
     CreatedBy             = $CreatedBy
     LicenseName           = $LicenseName
     CompanyName           = $CompanyName
@@ -314,6 +317,7 @@ $Outputs = @{
     CommunityEmailList      = $communityEmails
     UserData                = $respNewUser
     AutoTaskTicketId        = $respNewTicket.ItemId
+    AutoTaskTicketNumber    = $ticketContent.ticketNumber
     AutoTaskContactId       = $respNewContact.itemId
     HuduPasswordId          = $respHuduPw.asset_password.id
     OneTimeSecretSuccess    = $respOts
