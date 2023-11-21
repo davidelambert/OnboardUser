@@ -240,12 +240,13 @@ $jobTitleParams = [System.Collections.IDictionary]@{
     CreatedBy             = $CreatedBy
     LicenseName           = $LicenseName
     CompanyName           = $CompanyName
-    AddPax8License        = $licenseApprovalRequired
 }
 
 $licenseData = Get-LicenseData $LicenseName
 if ($licenseData.ConsumedUnits -lt $licenseData.PrepaidUnits.Enabled) {
     $licenseApprovalRequired = $false
+    $jobTitleParams.Add("AddPax8License", $licenseApprovalRequired)
+
     $respAssignLicense = Set-MgUserLicense -UserId $upn -AddLicenses @{SkuId = $licenseData.SkuId } -RemoveLicenses @()
     if ($null -eq $respAssignLicense) {
         Write-Error "Failed to assign license `"$($LicenseName)`" to $($upn)" -ErrorAction Stop
@@ -274,7 +275,9 @@ if ($licenseData.ConsumedUnits -lt $licenseData.PrepaidUnits.Enabled) {
     Write-Output $scheduleJob
 }
 else {
+    # Call license approval Logic App, call JobTitle from there
     $licenseApprovalRequired = $true
+    $jobTitleParams.Add("AddPax8License", $licenseApprovalRequired)
     $approvalHeaders = @{
         "Content-Type" = "application/json"
     }
