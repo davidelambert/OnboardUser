@@ -66,7 +66,7 @@ foreach ($sn in $atSecretNames) {
     $atCredentials.Add($name, $value)
 }
 if ($atCredentials.Count -eq 0) {
-    throw "Autotask API credentials not found"
+    Write-Error "Autotask API credentials not found" -ErrorAction Stop
 }
 
 $huduCredentials = @{}
@@ -74,7 +74,7 @@ $secret = Get-AzKeyVaultSecret -VaultName "IntegridAPIKeys" -Name "Hudu-ApiKey"
 $value = ConvertFrom-SecureString $secret.SecretValue -AsPlainText
 $huduCredentials.Add("x-api-key", $value)
 if ($huduCredentials.Count -eq 0) {
-    throw "Hudu API credentials not found"
+    Write-Error "Hudu API credentials not found" -ErrorAction Stop
 }
 
 $otsSecretNames = @("OneTimeSecret-Username", "OneTimeSecret-ApiKey")
@@ -86,7 +86,7 @@ foreach ($sn in $otsSecretNames) {
     $otsCredentials.Add($name, $value)
 }
 if ($otsCredentials.Count -eq 0) {
-    throw "OneTimeSecret API credentials not found"
+    Write-Error "OneTimeSecret API credentials not found" -ErrorAction Stop
 }
 
 $pax8SecretNames = @("Pax8-client-id", "Pax8-client-secret")
@@ -99,7 +99,7 @@ foreach ($sn in $pax8SecretNames) {
     $pax8Credentials.Add($name, $value)
 }
 if ($pax8Credentials.Count -eq 0) {
-    throw "Pax8 API credentials not found"
+    Write-Error "Pax8 API credentials not found" -ErrorAction Stop
 }
 
 
@@ -107,49 +107,24 @@ if ($pax8Credentials.Count -eq 0) {
 # Variables =================
 $atPicklist = Get-AutoTaskTicketPicklist $atCredentials
 if ($atPicklist.Count -eq 0) {
-    throw "Autotask ticket picklist not found"
+    Write-Error "Autotask ticket picklist not found" -ErrorAction Stop
 }
 
 
 $atCompanyId = Get-AutoTaskCompanyId $CompanyName -Credentials $atCredentials
 if ($null -eq $atCompanyId) {
-    throw "Failed to retrieve Autotask company ID"
+    Write-Error "Failed to retrieve Autotask company ID" -ErrorAction Stop
 }
-
-$atContactId = Get-AutoTaskContact $CreatedByEmail -CompanyId $atCompanyId -Credentials $atCredentials
-if ($null -eq $atContactId) {
-    $newCreatorContactParams = @{
-        Credentials       = $atCredentials
-        CompanyId         = $atCompanyId
-        # TODO: reorder location list retrieval and user lookup instead of magic number below
-        CompanyLocationId = 45
-        FirstName         = $CreatedByDisplayName.Split(" ")[0]
-        LastName          = $CreatedByDisplayName.Split(" ")[0]
-        EmailAddress      = $CreatedByEmail
-    }
-    $respNewCreatorContact = New-AutoTaskContact @newCreatorContactParams
-    if ($null -eq $respNewCreatorContact) {
-        Write-Warning "Failed to create AutoTask contact for SharePoint list editor $CreatedByEmail."
-        # TODO: parameterize backup contact
-        $atContactId = Get-AutoTaskContact "integrid.data@wynnefieldproperties.com" -CompanyId $atCompanyId -Credentials $atCredentials
-        Write-Warning "Using backup AutoTask contact $atContactId to create ticket."
-    }
-    else {
-        $atContactId = $respNewCreatorContact.itemId
-        Write-Output "=> AutoTask Contact created with Id: $atContactId"
-    }
-}
-
 
 $huduCompanyId = Get-HuduCompanyId $CompanyName -Credentials $huduCredentials
 if ($null -eq $huduCompanyId) {
-    throw "Failed to retrieve Hudu company ID"
+    Write-Error "Failed to retrieve Hudu company ID" -ErrorAction Stop
 }
 
 
 $locationList = Get-SPListItems -SiteName $SpSiteName -ListName $SpListName
 if (($locationList.Count -eq 0) -or ($null -eq $locationList)) {
-    throw "Failed to retrieve SharePoint location list"
+    Write-Error "Failed to retrieve SharePoint location list" -ErrorAction Stop
 }
 $locationList = Format-LocationList $locationList
 
@@ -182,17 +157,42 @@ foreach ($l in $Location) {
     $communityEmails += $locationList | Where-Object { $_.Name -eq $l } | Select-Object -ExpandProperty Email
 }
 
+$respTicketContact = Get-AutoTaskContact $CreatedByEmail -CompanyId $atCompanyId -Credentials $atCredentials
+if ($respTicketContact.pageDetails.count -eq 0) {
+    $newCreatorContactParams = @{
+        Credentials       = $atCredentials
+        CompanyId         = $atCompanyId
+        CompanyLocationId = $locationList | Where-Object { $_.Name -eq "Main Office" } | Select-Object -ExpandProperty LocationId
+        FirstName         = $CreatedByDisplayName.Split(" ")[0]
+        LastName          = $CreatedByDisplayName.Split(" ")[0]
+        EmailAddress      = $CreatedByEmail
+    }
+    $respNewCreatorContact = New-AutoTaskContact @newCreatorContactParams
+    if ($null -eq $respNewCreatorContact) {
+        $ticketContactId = $null
+        Write-Warning "Failed to create AutoTask contact for SharePoint list editor $CreatedByEmail. Ticket will be created with no contact."
+    }
+    else {
+        $ticketContactId = $respNewCreatorContact.itemId
+        Write-Output "=> AutoTask contact created for $CreatedByDisplayName with id: $ticketContactId"
+    }
+}
+else {
+    $ticketContactId = $respTicketContact.items[0].id
+    Write-Output "=> AutoTask contact found for $CreatedByDisplayName with id: $ticketContactId"
+}
+
 
 $upn = "$FirstName.$LastName@$Domain"
 $pwProfile = New-PasswordProfile
 
 
-# Main script =================
+# Ticket, User, AT Contact, and Hudu Password =================
 $newTicketParams = @{
     CreateDate   = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ssZ")
     DueDate      = (Get-Date).AddDays(1).ToString("yyyy-MM-ddTHH:mm:ssZ")
     CompanyId    = $atCompanyId
-    ContactId    = $atContactId
+    ContactId    = $ticketContactId
     Priority     = Get-AutoTaskPicklistValue -Picklist $atPicklist -Field "priority" -Label "PIII Normal Response"
     QueueId      = Get-AutoTaskPicklistValue -Picklist $atPicklist -Field "queueid" -Label "Triage"
     Status       = Get-AutoTaskPicklistValue -Picklist $atPicklist -Field "status" -Label "Pre-Process"
@@ -204,7 +204,7 @@ $newTicketParams = @{
 }
 $respNewTicket = New-AutoTaskTicket -Credentials $atCredentials @newTicketParams
 if ($null -eq $respNewTicket) {
-    Write-Output "=> Failed to create ticket"
+    Write-Error "Failed to create AutoTask ticket" -ErrorAction Stop
 }
 else {
     $ticketContent = (Get-AutoTaskTicket -Credentials $atCredentials -TicketId $respNewTicket.ItemId).item
@@ -212,12 +212,11 @@ else {
 }
 
 
-
 $respNewUser = New-MgUser -AccountEnabled -DisplayName "$FirstName $LastName" -MailNickname "$FistName$LastName" `
     -UserPrincipalName $upn -PasswordProfile $pwProfile -GivenName $FirstName -Surname $LastName `
     -JobTitle $JobTitle -OfficeLocation $m365Location -UsageLocation "US"
 if ($null -eq $respNewUser) {
-    Write-Output "=> Failed to create user"
+    Write-Error "Failed to create Entra ID user" -ErrorAction Stop
 }
 else {
     Write-Output "=> User created with Id: $($respNewUser.Id)"
@@ -228,7 +227,7 @@ $respNewContact = New-AutoTaskContact -Credentials $atCredentials `
     -CompanyId $atCompanyId -CompanyLocationId $companyLocationId `
     -FirstName $FirstName -LastName $LastName -EmailAddress $upn
 if ($null -eq $respNewContact) {
-    Write-Output "=> Failed to create contact"
+    Write-Warning "Failed to create AutoTask Contact for $upn."
 }
 else {
     Write-Output "=> AutoTask Contact created with Id: $($respNewContact.itemId)"
@@ -238,7 +237,7 @@ else {
 $respHuduPw = New-HuduPassword -Credentials $huduCredentials -CompanyId $huduCompanyId `
     -Name "$FirstName $LastName" -Email $upn -Password $pwProfile.Password
 if ($null -eq $respHuduPw) {
-    Write-Output "=> Failed to create Hudu password"
+    Write-Warning "Failed to add password for $upn to Hudu. User has been created, but password is undocumented."
 }
 else {
     Write-Output "=> Hudu password created with Id: $($respHuduPw.asset_password.id)"
@@ -248,11 +247,12 @@ else {
 $respOts = Send-OTSPassword -EmployeeName "$FirstName $LastName" -Secret $pwProfile.Password `
     -SenderEmail $PasswordSender -RecipientEmail $CreatedByEmail -Credentials $otsCredentials
 if ($respOts) {
-    Write-Output "=> OneTimeSecret password sent to $CreatedByEmail"
+    Write-Output "=> OneTimeSecret password notification sent to $CreatedByEmail for new user $upn"
 }
 else {
-    Write-Output "=> Failed to send OneTimeSecret password notification to $CreatedByEmail"
+    Write-Warning "Failed to send OneTimeSecret password notification to $CreatedByEmail for new user $upn. Password will need to be reset manually and sent to $CreatedByEmail."
 }
+
 
 # License provisioning and JobTitleTasks scheduling ================
 $jobTitleParams = [System.Collections.IDictionary]@{
@@ -359,8 +359,6 @@ Write-Output ("`nInput Parameters`n" + ("=" * 32))
 Write-Output $InputParameters
 Write-Output ("`nOutputs`n" + ("=" * 32))
 Write-Output $Outputs
-Write-Output ("`nLicense Approval Required`n" + ("=" * 32))
-Write-Output $Outputs.LicenseApprovalRequired
 Write-Output ("`nUser Data`n" + ("=" * 32))
 Write-Output $Outputs.UserData
 
