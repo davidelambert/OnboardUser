@@ -188,6 +188,15 @@ $pwProfile = New-PasswordProfile
 
 
 # Ticket, User, AT Contact, and Hudu Password =================
+$respSubIssueType = Get-AutoTaskPicklistValue -Picklist $atPicklist -Field "subIssueType" -Label "Onboarding"
+if ($respSubIssueType.Count -gt 1) {
+    Write-Warning "Multiple sub-issue types found. Using first one."
+    $atSubIssueType = $respSubIssueType[0]
+}
+else {
+    $atSubIssueType = $respSubIssueType
+}
+
 $newTicketParams = @{
     CreateDate   = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ssZ")
     DueDate      = (Get-Date).AddDays(1).ToString("yyyy-MM-ddTHH:mm:ssZ")
@@ -198,7 +207,7 @@ $newTicketParams = @{
     Status       = Get-AutoTaskPicklistValue -Picklist $atPicklist -Field "status" -Label "Pre-Process"
     TicketType   = Get-AutoTaskPicklistValue -Picklist $atPicklist -Field "ticketType" -Label "Implementation MS"
     IssueType    = Get-AutoTaskPicklistValue -Picklist $atPicklist -Field "issueType" -Label "IMP-USER CHANGES"
-    SubIssueType = Get-AutoTaskPicklistValue -Picklist $atPicklist -Field "subIssueType" -Label "Onboarding"
+    SubIssueType = $atSubIssueType
     Title        = "**Test** - Onboarding New Employee $FirstName $LastName"
     Description  = "Automatic onboarding ticket for new employee $FirstName $LastName."
 }
