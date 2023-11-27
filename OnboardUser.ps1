@@ -36,7 +36,10 @@ param(
     [string[]]$Equipment,
     
     [Parameter(Mandatory = $true)]
-    [string]$CreatedBy,
+    [string]$CreatedByEmail,
+
+    [Parameter(Mandatory = $true)]
+    [string]$CreatedByDisplayName,
     
     [Parameter(Mandatory = $true)]
     [string]$PasswordSender,
@@ -113,6 +116,30 @@ if ($null -eq $atCompanyId) {
     throw "Failed to retrieve Autotask company ID"
 }
 
+$atContactId = Get-AutoTaskContact $CreatedByEmail -CompanyId $atCompanyId -Credentials $atCredentials
+if ($null -eq $atContactId) {
+    $newCreatorContactParams = @{
+        Credentials       = $atCredentials
+        CompanyId         = $atCompanyId
+        # TODO: reorder location list retrieval and user lookup instead of magic number below
+        CompanyLocationId = 45
+        FirstName         = $CreatedByDisplayName.Split(" ")[0]
+        LastName          = $CreatedByDisplayName.Split(" ")[0]
+        EmailAddress      = $CreatedByEmail
+    }
+    $respNewCreatorContact = New-AutoTaskContact @newCreatorContactParams
+    if ($null -eq $respNewCreatorContact) {
+        Write-Warning "Failed to create AutoTask contact for SharePoint list editor $CreatedByEmail."
+        # TODO: parameterize backup contact
+        $atContactId = Get-AutoTaskContact "integrid.data@wynnefieldproperties.com" -CompanyId $atCompanyId -Credentials $atCredentials
+        Write-Warning "Using backup AutoTask contact $atContactId to create ticket."
+    }
+    else {
+        $atContactId = $respNewCreatorContact.itemId
+        Write-Output "=> AutoTask Contact created with Id: $atContactId"
+    }
+}
+
 
 $huduCompanyId = Get-HuduCompanyId $CompanyName -Credentials $huduCredentials
 if ($null -eq $huduCompanyId) {
@@ -165,12 +192,13 @@ $newTicketParams = @{
     CreateDate   = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ssZ")
     DueDate      = (Get-Date).AddDays(1).ToString("yyyy-MM-ddTHH:mm:ssZ")
     CompanyId    = $atCompanyId
+    ContactId    = $atContactId
     Priority     = Get-AutoTaskPicklistValue -Picklist $atPicklist -Field "priority" -Label "PIII Normal Response"
     QueueId      = Get-AutoTaskPicklistValue -Picklist $atPicklist -Field "queueid" -Label "Triage"
-    Status       = Get-AutoTaskPicklistValue -Picklist $atPicklist -Field "status" -Label "New(Portal)~"
-    TicketType   = Get-AutoTaskPicklistValue -Picklist $atPicklist -Field "ticketType" -Label "Change Request"
-    IssueType    = Get-AutoTaskPicklistValue -Picklist $atPicklist -Field "issueType" -Label "HD-Email"
-    SubIssueType = Get-AutoTaskPicklistValue -Picklist $atPicklist -Field "subIssueType" -Label "Microsoft 365"
+    Status       = Get-AutoTaskPicklistValue -Picklist $atPicklist -Field "status" -Label "Pre-Process"
+    TicketType   = Get-AutoTaskPicklistValue -Picklist $atPicklist -Field "ticketType" -Label "Implementation MS"
+    IssueType    = Get-AutoTaskPicklistValue -Picklist $atPicklist -Field "issueType" -Label "IMP-USER CHANGES"
+    SubIssueType = Get-AutoTaskPicklistValue -Picklist $atPicklist -Field "subIssueType" -Label "Onboarding"
     Title        = "**Test** - Onboarding New Employee $FirstName $LastName"
     Description  = "Automatic onboarding ticket for new employee $FirstName $LastName."
 }
@@ -218,12 +246,12 @@ else {
 
 
 $respOts = Send-OTSPassword -EmployeeName "$FirstName $LastName" -Secret $pwProfile.Password `
-    -SenderEmail $PasswordSender -RecipientEmail $CreatedBy -Credentials $otsCredentials
+    -SenderEmail $PasswordSender -RecipientEmail $CreatedByEmail -Credentials $otsCredentials
 if ($respOts) {
-    Write-Output "=> OneTimeSecret password sent to $CreatedBy"
+    Write-Output "=> OneTimeSecret password sent to $CreatedByEmail"
 }
 else {
-    Write-Output "=> Failed to send OneTimeSecret password notification to $CreatedBy"
+    Write-Output "=> Failed to send OneTimeSecret password notification to $CreatedByEmail"
 }
 
 # License provisioning and JobTitleTasks scheduling ================
@@ -240,7 +268,8 @@ $jobTitleParams = [System.Collections.IDictionary]@{
     CommunityEmails       = $communityEmails
     AutoTaskTicketId      = $respNewTicket.ItemId
     AutoTaskTicketNumber  = $ticketContent.ticketNumber
-    CreatedBy             = $CreatedBy
+    CreatedByEmail        = $CreatedByEmail
+    CreatedByDisplayName  = $CreatedByDisplayName
     LicenseName           = $LicenseName
     CompanyName           = $CompanyName
 }
@@ -302,7 +331,8 @@ $InputParameters = @{
     Location              = $Location
     JobTitle              = $JobTitle
     Equipment             = $Equipment
-    CreatedBy             = $CreatedBy
+    CreatedByEmail        = $CreatedByEmail
+    CreatedByDisplayName  = $CreatedByDisplayName
     PasswordSender        = $PasswordSender
     LicenseName           = $LicenseName
     ApprovalWebhookUrl    = $ApprovalWebhookUrl
