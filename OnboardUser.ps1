@@ -189,7 +189,8 @@ $pwProfile = New-PasswordProfile
 
 # Ticket, User, AT Contact, and Hudu Password =================
 $issueType = (Get-AutoTaskPicklistItem -Picklist $atPicklist -Field "issueType" -Label "IMP-USER CHANGES").value
-$subIssueType = (Get-AutoTaskPicklistItem -Picklist $atPicklist -Field "subIssueType" -Label "Onboarding").value
+$subIssueType = Get-AutoTaskPicklistItem -Picklist $atPicklist -Field "subIssueType" -Label "Onboarding" | `
+    Where-Object { $_.parentValue -eq $issueType } | Select-Object -ExpandProperty value
 
 $newTicketParams = @{
     CreateDate     = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ssZ")
