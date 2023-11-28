@@ -188,28 +188,23 @@ $pwProfile = New-PasswordProfile
 
 
 # Ticket, User, AT Contact, and Hudu Password =================
-$respSubIssueType = Get-AutoTaskPicklistValue -Picklist $atPicklist -Field "subIssueType" -Label "Onboarding"
-if ($respSubIssueType.Count -gt 1) {
-    Write-Warning "Multiple sub-issue types found. Using first one."
-    $atSubIssueType = $respSubIssueType[0]
-}
-else {
-    $atSubIssueType = $respSubIssueType
-}
+$issueType = (Get-AutoTaskPicklistItem -Picklist $atPicklist -Field "issueType" -Label "IMP-USER CHANGES").value
+$subIssueType = (Get-AutoTaskPicklistItem -Picklist $atPicklist -Field "subIssueType" -Label "Onboarding").value
 
 $newTicketParams = @{
-    CreateDate   = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ssZ")
-    DueDate      = (Get-Date).AddDays(1).ToString("yyyy-MM-ddTHH:mm:ssZ")
-    CompanyId    = $atCompanyId
-    ContactId    = $ticketContactId
-    Priority     = Get-AutoTaskPicklistValue -Picklist $atPicklist -Field "priority" -Label "PIII Normal Response"
-    QueueId      = Get-AutoTaskPicklistValue -Picklist $atPicklist -Field "queueid" -Label "Triage"
-    Status       = Get-AutoTaskPicklistValue -Picklist $atPicklist -Field "status" -Label "Pre-Process"
-    TicketType   = Get-AutoTaskPicklistValue -Picklist $atPicklist -Field "ticketType" -Label "Change Request"
-    IssueType    = Get-AutoTaskPicklistValue -Picklist $atPicklist -Field "issueType" -Label "IMP-USER CHANGES"
-    SubIssueType = $atSubIssueType
-    Title        = "**Test** - Onboarding New Employee $FirstName $LastName"
-    Description  = "Automatic onboarding ticket for new employee $FirstName $LastName."
+    CreateDate     = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ssZ")
+    DueDate        = (Get-Date).AddDays(1).ToString("yyyy-MM-ddTHH:mm:ssZ")
+    CompanyId      = $atCompanyId
+    ContactId      = $ticketContactId
+    Priority       = (Get-AutoTaskPicklistItem -Picklist $atPicklist -Field "priority" -Label "PIII Normal Response").value
+    QueueId        = (Get-AutoTaskPicklistItem -Picklist $atPicklist -Field "queueid" -Label "Triage").value
+    Status         = (Get-AutoTaskPicklistItem -Picklist $atPicklist -Field "status" -Label "Pre-Process").value
+    TicketCategory = (Get-AutoTaskPicklistItem -Picklist $atPicklist -Field "ticketCategory" -Label "Implementation MS").value
+    TicketType     = (Get-AutoTaskPicklistItem -Picklist $atPicklist -Field "ticketType" -Label "Change Request").value
+    IssueType      = $issueType
+    SubIssueType   = $subIssueType
+    Title          = "**Test** - Onboarding New Employee $FirstName $LastName"
+    Description    = "Automatic onboarding ticket for new employee $FirstName $LastName."
 }
 $respNewTicket = New-AutoTaskTicket -Credentials $atCredentials @newTicketParams
 if ($null -eq $respNewTicket) {
