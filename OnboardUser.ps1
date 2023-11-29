@@ -1,3 +1,135 @@
+<#
+.SYNOPSIS
+This script automates the onboarding process for new employees leveraging the REST APIs of common MSP tools.
+
+.DESCRIPTION
+This PowerShell script is designed to streamline the onboarding process in an IT environment. It manages user creation,
+ticket handling, license assignments, and other essential tasks by connecting with Azure, Microsoft Graph, AutoTask,
+Hudu, and OneTimeSecret.
+
+.PARAMETER AppId
+The Application (client) ID of the Azure App registration used for the Microsoft Graph and Exchangle Online APIs.
+This app should be registered in the client's Azure tenant with API permissions as describedf in the NOTES section.
+
+.PARAMETER TenantId
+The client's Azure tenant (directory) ID.
+
+.PARAMETER CertificateThumbprint
+The thumbprint of an authentication certificate attached to the Azure registered app and to the Azure Automation 
+account that will run this script.
+
+.PARAMETER CompanyName
+Client's company name. Name should be identical in AutoTask, Hudu, and Pax8.
+
+.PARAMETER Domain
+Domain name in which the new user will be created.
+
+.PARAMETER SpSiteName
+Name of a SharePoint site in the client's tenant containing company location data.
+
+.PARAMETER SpListName
+Name of the SharePoint list containing company location data. The list should have columns for location name, email, 
+and AutoTask location ID.
+
+.PARAMETER FirstName
+First name of the new employee.
+
+.PARAMETER LastName
+Last name of the new employee.
+
+.PARAMETER Location
+Array of locations names where the employee will be working. If multiple locations are provided, the user will be
+assigned to the "Multiple - ASK BEFORE ONSITE" location in AutoTask, but all locations will be added to the Entra 
+ID profile.
+
+.PARAMETER JobTitle
+Job title of the new employee.
+
+.PARAMETER Equipment
+Array of equipment to be requested for the new employee (Optional).
+
+.PARAMETER CreatedByEmail
+Email of the person initiating the onboarding request. Typically gathered automatically from the user who added the new
+employee to the front end SharePoint list.
+
+.PARAMETER CreatedByDisplayName
+Display name of the onboarding request initiator. Likewise gathered automatically from the front end SharePoint list editor.
+
+.PARAMETER PasswordSender
+Email used for sending password information via OneTimeSecret.
+
+.PARAMETER LicenseName
+Name or partial name of the Microsoft 365 license to be assigned to the new user. A list of currently supported 
+license names can be found in the OnboardingUtilities module.
+
+.PARAMETER ApprovalWebhookUrl
+Webhook URL for the Azure Logic App which conditionally launches an email approval workflow when a new Microsoft 365
+license is required.
+
+.EXAMPLE
+.\OnboardingScript.ps1 -AppId '6c2215a7-39de-4df2-9a0f-5ce814f87e9f' `
+    -TenantId '315e5c10-3b21-4914-9b83-37bdf68e67ec' `
+    -CertificateThumbprint 1234ABCD5678EFGH9012IJKL3456MNOP7890QRST `
+    -CompanyName ExampleCorp `
+    -Domain 'example.com' `
+    -SpSiteName OnboardingData `
+    -SpListName Location
+    -FirstName John `
+    -LastName Doe `
+    -Location 'Main Office' `
+    -JobTitle 'Software Engineer II' `
+    -Equipment 'Laptop, Dock, Monitor' `
+    -CreatedByEmail 'hiring.manager@example.com'
+    -CreatedByDisplayName 'Hiring Manager'
+    -PasswordSender 'onboarding@example.com'
+    -LicenseName 'Business Premium'
+    -ApprovalWebhookUrl 'http://webhook.url'
+
+.NOTES
+- All parameters are required except for `-Equipment`.
+- The `SetupGraph.ps1` script should be run prior to running this script.
+- The script requires an Azure Automation account with the OnboardingUtilities module from Integrid installed.
+- The Managed Identity associated with the Azure Automation account should have the following Azure role assignments,
+  assigned from the Automation Account's "Identity" panel:
+    - Virtual Machine Contributor
+    - Automation Contributor
+    - Key Vault Secrets User
+- The Azure Automation Managed Identity should have the following Entra ID RBAC role assignments, assigned from the 
+  Entra ID "Roles and Administrators" panel:
+    - Exchange Administrator
+- The Azure App Registration's Manifest needs the following record added to its "requiredResourceAccess" property in
+  order for the Exchange Online PowerShell module to authorize:
+    {
+        "resourceAppId": "00000002-0000-0ff1-ce00-000000000000",
+        "resourceAccess": [
+            {
+                "id": "dc50a0fb-09a3-484d-be87-e023b12c6440",
+                "type": "Role"
+            }
+        ]
+    }
+- The Azure App Registration should have the following API permissions enabled, with admin consent granted on behalf of
+  the organization:
+    - Microsoft Graph
+        - Directory.ReadWrite.All
+        - Group.ReadWrite.All
+        - Mail.ReadWrite
+        - Mail.Send
+        - Organization.Read.All
+        - Sites.Manage.All
+        - User.ReadWrite.All
+        - UserAuthenticationMethod.ReadWrite.All
+    - Office 365 Exchange Online
+        - Exchange.ManageAsApp
+- This script requires a self-signed security certificate attached to the Azure App Registration and Automation account.
+    - The Azure App Registration should have a public .cer certificate uploaded to it.
+    - The associated private .pfx certificate should be uploaded to the "Certificates" tab of the Azure Automation account.
+    - The `GenerateCertificate.ps1` script is provided to assist with these tasks.
+
+.LINK
+https://github.com/Integrid-LLC/OnboardingUtilities
+#>
+
 param(
     [Parameter(Mandatory = $true)]
     [string]$AppId,
