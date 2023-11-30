@@ -127,7 +127,7 @@ license is required.
     - The `GenerateCertificate.ps1` script is provided to assist with these tasks.
 
 .LINK
-https://github.com/Integrid-LLC/OnboardingUtilities
+https://github.com/Integrid-LLC/OnboardUser
 #>
 
 param(
