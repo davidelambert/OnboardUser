@@ -83,48 +83,12 @@ license is required.
     -CreatedByDisplayName 'Hiring Manager'
     -PasswordSender 'onboarding@example.com'
     -LicenseName 'Business Premium'
-    -ApprovalWebhookUrl 'http://webhook.url'
+    -ApprovalWebhookUrl 'https://prod-90.eastus.logic.azure.com:443/workflows/5b20125ee5c6404fa8132623130bae43/triggers/manual/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=hgNJehZVJHP0ieYtv1b_vthRvi-FXt8VI06vMWQOLao'
 
 .NOTES
 - All parameters are required except for `-Equipment`.
-- The `SetupGraph.ps1` script should be run prior to running this script.
-- The script requires an Azure Automation account with the OnboardingUtilities module from Integrid installed.
-- The Managed Identity associated with the Azure Automation account should have the following Azure role assignments,
-  assigned from the Automation Account's "Identity" panel:
-    - Virtual Machine Contributor
-    - Automation Contributor
-    - Key Vault Secrets User
-- The Azure Automation Managed Identity should have the following Entra ID RBAC role assignments, assigned from the 
-  Entra ID "Roles and Administrators" panel:
-    - Exchange Administrator
-- The Azure App Registration's Manifest needs the following record added to its "requiredResourceAccess" property in
-  order for the Exchange Online PowerShell module to authorize:
-    {
-        "resourceAppId": "00000002-0000-0ff1-ce00-000000000000",
-        "resourceAccess": [
-            {
-                "id": "dc50a0fb-09a3-484d-be87-e023b12c6440",
-                "type": "Role"
-            }
-        ]
-    }
-- The Azure App Registration should have the following API permissions enabled, with admin consent granted on behalf of
-  the organization:
-    - Microsoft Graph
-        - Directory.ReadWrite.All
-        - Group.ReadWrite.All
-        - Mail.ReadWrite
-        - Mail.Send
-        - Organization.Read.All
-        - Sites.Manage.All
-        - User.ReadWrite.All
-        - UserAuthenticationMethod.ReadWrite.All
-    - Office 365 Exchange Online
-        - Exchange.ManageAsApp
-- This script requires a self-signed security certificate attached to the Azure App Registration and Automation account.
-    - The Azure App Registration should have a public .cer certificate uploaded to it.
-    - The associated private .pfx certificate should be uploaded to the "Certificates" tab of the Azure Automation account.
-    - The `GenerateCertificate.ps1` script is provided to assist with these tasks.
+- If multiple locations are provided, the user will be assigned to the "Multiple - ASK BEFORE ONSITE" location in
+AutoTask, but all locations will be added to the Entra ID profile.
 
 .LINK
 https://github.com/Integrid-LLC/OnboardUser
