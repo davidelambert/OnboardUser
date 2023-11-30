@@ -8,7 +8,7 @@
         - Microsoft.Graph.Authentication (**NOTE:** Must be installed prior to other Microsoft Graph modules)
         - Microsoft.Graph.Groups
         - Microsoft.Graph.Identity.DirectoryManagement
-        - Microsoft.GRaph.Sites
+        - Microsoft.Graph.Sites
         - Microsoft.Graph.Users
         - Microsoft.Graph.Users.Actions
         - ExchangeOnlineManagement
@@ -86,3 +86,28 @@
     - Locate and click on the "Exchange Administrator" role
     - Click the "Add assignments" button
     - Add the Azure registered application (for example, `OnboardingApp`)
+
+### Usage
+
+`OnboardUser.ps1` is intended to be run in Azure as a runbook by the Azure Automation account created in step 1 of the Enviroment Setup. In this scenario, parameters are typically passed to runbook from Azure Logic Apps or another user input pre-processor.
+
+However, the script can be also be run manually from the command line. For this to work, the Azure authentication line should be modified to authenticate a user directly instead of using a managed identity. The Integrid OnboardingUtilities PowerShell module should also be installed locally. A local usage example is:
+```
+.\OnboardingScript.ps1 -AppId '6c2215a7-39de-4df2-9a0f-5ce814f87e9f' `
+    -TenantId '315e5c10-3b21-4914-9b83-37bdf68e67ec' `
+    -CertificateThumbprint 1234ABCD5678EFGH9012IJKL3456MNOP7890QRST `
+    -CompanyName ExampleCorp `
+    -Domain 'example.com' `
+    -SpSiteName OnboardingData `
+    -SpListName Location `
+    -FirstName John `
+    -LastName Doe `
+    -Location 'Main Office' `
+    -JobTitle 'Software Engineer II' `
+    -Equipment 'Laptop, Dock, Monitor' ` 
+    -CreatedByEmail 'hiring.manager@example.com' `
+    -CreatedByDisplayName 'Hiring Manager' `
+    -PasswordSender 'onboarding@example.com' ` 
+    -LicenseName 'Business Premium' `
+    -ApprovalWebhookUrl 'https://prod-90.eastus.logic.azure.com:443/workflows/5b20125ee5c6404fa8132623130bae43/triggers/manual/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=hgNJehZVJHP0ieYtv1b_vthRvi-FXt8VI06vMWQOLao'
+```
