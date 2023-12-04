@@ -250,8 +250,8 @@ else {
         -CompanyId $atCompanyId -Credentials $atCredentials
 }
 if ($null -eq $companyLocationId) {
-    Write-Warning "Failed to retrieve AutoTask Company Location ID. Assigning to principal location by default."
-    $companyLocationId = Get-AutoTaskCompanyLocationId -LocationName "Principal" `
+    Write-Warning "Failed to retrieve AutoTask Company Location ID. Assigning to primary location by default."
+    $companyLocationId = Get-AutoTaskCompanyLocationId -LocationName "Primary" `
         -CompanyId $atCompanyId -Credentials $atCredentials
 }
 
