@@ -242,7 +242,7 @@ else {
 
 
 if ($Location.Count -gt 1) {
-    $companyLocationId = Get-AutoTaskCompanyLocationId -LocationName "Multiple - ASK BEFORE ONSITE" `
+    $companyLocationId = Get-AutoTaskCompanyLocationId -LocationName "Multiple" `
         -CompanyId $atCompanyId -Credentials $atCredentials
 }
 else {
@@ -250,15 +250,15 @@ else {
         -CompanyId $atCompanyId -Credentials $atCredentials
 }
 if ($null -eq $companyLocationId) {
-    Write-Warning "Failed to retrieve AutoTask Company Location ID. Assigning to Main Office by default."
+    Write-Warning "Failed to retrieve AutoTask Company Location ID. Assigning to principal location by default."
     $companyLocationId = Get-AutoTaskCompanyLocationId -LocationName "Principal" `
         -CompanyId $atCompanyId -Credentials $atCredentials
 }
 
 
-$communityEmails = @()
+$locationEmails = @()
 foreach ($l in $Location) {
-    $communityEmails += $locationList | Where-Object { $_.Name -eq $l } | Select-Object -ExpandProperty Email
+    $locationEmails += $locationList | Where-Object { $_.Name -eq $l } | Select-Object -ExpandProperty Email
 }
 
 
@@ -391,7 +391,7 @@ $outputParams = [System.Collections.IDictionary]@{
     HuduCompanyId             = $huduCompanyId
     M365Location              = $m365Location
     AutoTaskLocationId        = $companyLocationId
-    CommunityEmailList        = $communityEmails
+    LocationEmails            = $locationEmails
     UserData                  = $respNewUser
     AutoTaskTicketId          = $respNewTicket.ItemId
     AutoTaskTicketNumber      = $ticketContent.ticketNumber
