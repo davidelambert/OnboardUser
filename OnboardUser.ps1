@@ -256,9 +256,9 @@ if ($null -eq $companyLocationId) {
 }
 
 
-$locationEmails = @()
+$LocationEmails = @()
 foreach ($l in $Location) {
-    $locationEmails += $locationList | Where-Object { $_.Name -eq $l } | Select-Object -ExpandProperty Email
+    $LocationEmails += $locationList | Where-Object { $_.Name -eq $l } | Select-Object -ExpandProperty Email
 }
 
 
@@ -391,7 +391,7 @@ $outputParams = [System.Collections.IDictionary]@{
     HuduCompanyId             = $huduCompanyId
     M365Location              = $m365Location
     AutoTaskLocationId        = $companyLocationId
-    LocationEmails            = $locationEmails
+    LocationEmails            = $LocationEmails
     UserData                  = $respNewUser
     AutoTaskTicketId          = $respNewTicket.ItemId
     AutoTaskTicketNumber      = $ticketContent.ticketNumber
