@@ -233,18 +233,18 @@ else {
 }
 
 
-$companyLocationId = if ($Location.Count -gt 1) {
-    $locationList | Where-Object { $_.Name -eq "Multiple - ASK BEFORE ONSITE" } `
-    | Select-Object -ExpandProperty LocationId
+if ($Location.Count -gt 1) {
+    $companyLocationId = Get-AutoTaskCompanyLocationId -LocationName "Multiple - ASK BEFORE ONSITE" `
+        -CompanyId $atCompanyId -Credentials $atCredentials
 }
 else {
-    $locationList | Where-Object { $_.Name -eq $Location[0] } `
-    | Select-Object -ExpandProperty LocationId
+    $companyLocationId = Get-AutoTaskCompanyLocationId -LocationName $Location[0] `
+        -CompanyId $atCompanyId -Credentials $atCredentials
 }
 if ($null -eq $companyLocationId) {
     Write-Warning "Failed to retrieve AutoTask Company Location ID. Assigning to Main Office by default."
-    $companyLocationId = $locationList | Where-Object { $_.Name -eq "Main Office" } `
-    | Select-Object -ExpandProperty LocationId
+    $companyLocationId = Get-AutoTaskCompanyLocationId -LocationName "Principal" `
+        -CompanyId $atCompanyId -Credentials $atCredentials
 }
 
 
@@ -252,6 +252,7 @@ $communityEmails = @()
 foreach ($l in $Location) {
     $communityEmails += $locationList | Where-Object { $_.Name -eq $l } | Select-Object -ExpandProperty Email
 }
+
 
 $respTicketContact = Get-AutoTaskContact $CreatedByEmail -CompanyId $atCompanyId -Credentials $atCredentials
 if ($respTicketContact.pageDetails.count -eq 0) {
