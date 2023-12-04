@@ -365,7 +365,7 @@ else {
 
 
 # License provisioning and Follow up runbook scheduling ================
-$outputParams = [System.Collections.IDictionary]@{
+$followUpParams = [System.Collections.IDictionary]@{
     AppId                 = $AppId
     TenantId              = $TenantId
     CertificateThumbprint = $CertificateThumbprint
@@ -387,7 +387,7 @@ $outputParams = [System.Collections.IDictionary]@{
 $licenseData = Get-LicenseData $LicenseName
 if ($licenseData.ConsumedUnits -lt $licenseData.PrepaidUnits.Enabled) {
     $licenseApprovalRequired = $false
-    $outputParams.Add("AddPax8License", $licenseApprovalRequired)
+    $followUpParams.Add("AddPax8License", $licenseApprovalRequired)
 
     $respAssignLicense = Set-MgUserLicense -UserId $upn -AddLicenses @{SkuId = $licenseData.SkuId } -RemoveLicenses @()
     if ($null -eq $respAssignLicense) {
@@ -410,7 +410,7 @@ if ($licenseData.ConsumedUnits -lt $licenseData.PrepaidUnits.Enabled) {
     }
     
     $scheduleJob = Register-AzAutomationScheduledRunbook -RunbookName $FollowUpRunbook -ScheduleName $scheduleName `
-        -Parameters $outputParams -ResourceGroupName $FollowUpResourceGroup -AutomationAccountName $FollowUpAutomationAccount
+        -Parameters $followUpParams -ResourceGroupName $FollowUpResourceGroup -AutomationAccountName $FollowUpAutomationAccount
     if ($null -eq $scheduleJob) {
         Write-Error "Failed to associate follow up runbook `"$FollowUpRunbook`" with schedule `"$scheduleName`"" -ErrorAction Stop
     }
@@ -424,11 +424,11 @@ else {
     # Call license approval Logic App, call JobTitle from there
     Write-Output "=> Approval required to add `"$($LicenseName)`" license subscription for $upn"
     $licenseApprovalRequired = $true
-    $outputParams.Add("AddPax8License", $licenseApprovalRequired)
+    $followUpParams.Add("AddPax8License", $licenseApprovalRequired)
     $approvalHeaders = @{
         "Content-Type" = "application/json"
     }
-    $approvalBody = ConvertTo-Json $outputParams
+    $approvalBody = ConvertTo-Json $followUpParams
     $respStartApproval = Invoke-RestMethod -Uri $ApprovalWebhookUrl -Method Post -Headers $approvalHeaders -Body $approvalBody
     if ($null -eq $respStartApproval) {
         Write-Error "Failed to start license approval logic app" -ErrorAction Stop
@@ -441,6 +441,42 @@ else {
 }
 
 # Summary Output ==================
+$outputParams = [System.Collections.IDictionary]@{
+    AppId                     = $AppId
+    TenantId                  = $TenantId
+    CertificateThumbprint     = $CertificateThumbprint
+    CompanyName               = $CompanyName
+    Domain                    = $Domain
+    SpSiteName                = $SpSiteName
+    SpListName                = $SpListName
+    FirstName                 = $FirstName
+    LastName                  = $LastName
+    Location                  = $Location
+    JobTitle                  = $JobTitle
+    Equipment                 = $Equipment
+    CreatedByEmail            = $CreatedByEmail
+    CreatedByDisplayName      = $CreatedByDisplayName
+    PasswordSender            = $PasswordSender
+    LicenseName               = $LicenseName
+    ApprovalWebhookUrl        = $ApprovalWebhookUrl
+    FollowUpAutomationAccount = $FollowUpAutomationAccount
+    FollowUpResourceGroup     = $FollowUpResourceGroup
+    FollowUpRunbook           = $FollowUpRunbook
+    UserPrincipalName         = $upn
+    AutoTaskCompanyId         = $atCompanyId
+    HuduCompanyId             = $huduCompanyId
+    M365Location              = $m365Location
+    AutoTaskLocationId        = $companyLocationId
+    LocationEmails            = $LocationEmails
+    UserData                  = $respNewUser
+    AutoTaskTicketId          = $respNewTicket.ItemId
+    AutoTaskTicketNumber      = $ticketContent.ticketNumber
+    AutoTaskContactId         = $respNewContact.itemId
+    HuduPasswordId            = $respHuduPw.asset_password.id
+    OneTimeSecretSuccess      = $respOts
+    LicenseData               = $licenseData
+    LicenseApprovalRequired   = $licenseApprovalRequired
+}
 Write-Output ("`n" + ("=" * 32))
 Write-Output ("Job Summary`n" + ("=" * 32))
 Write-Output $outputParams
