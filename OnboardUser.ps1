@@ -144,7 +144,16 @@ param(
     [string]$LicenseName,
 
     [Parameter(Mandatory = $true)]
-    [string]$ApprovalWebhookUrl
+    [string]$ApprovalWebhookUrl,
+
+    [Parameter(Mandatory = $true)]
+    [string]$FollowUpAutomationAccount,
+
+    [Parameter(Mandatory = $true)]
+    [string]$FollowUpResourceGroup,
+
+    [Parameter(Mandatory = $true)]
+    [string]$FollowUpRunbook
 )
 
 Import-Module OnboardingUtilities
@@ -197,7 +206,6 @@ foreach ($sn in $pax8SecretNames) {
 if ($pax8Credentials.Count -eq 0) {
     Write-Error "Pax8 API credentials not found" -ErrorAction Stop
 }
-
 
 
 # Variables =================
@@ -356,30 +364,48 @@ else {
 }
 
 
-# License provisioning and JobTitleTasks scheduling ================
-$jobTitleParams = [System.Collections.IDictionary]@{
-    AppId                 = $AppId
-    TenantId              = $TenantId
-    CertificateThumbprint = $CertificateThumbprint
-    FirstName             = $FirstName
-    LastName              = $LastName
-    JobTitle              = $JobTitle
-    Location              = $Location
-    Equipment             = $Equipment
-    UserPrincipalName     = $upn
-    CommunityEmails       = $communityEmails
-    AutoTaskTicketId      = $respNewTicket.ItemId
-    AutoTaskTicketNumber  = $ticketContent.ticketNumber
-    CreatedByEmail        = $CreatedByEmail
-    CreatedByDisplayName  = $CreatedByDisplayName
-    LicenseName           = $LicenseName
-    CompanyName           = $CompanyName
+# License provisioning and Follow up runbook scheduling ================
+$outputParams = [System.Collections.IDictionary]@{
+    AppId                     = $AppId
+    TenantId                  = $TenantId
+    CertificateThumbprint     = $CertificateThumbprint
+    CompanyName               = $CompanyName
+    Domain                    = $Domain
+    SpSiteName                = $SpSiteName
+    SpListName                = $SpListName
+    FirstName                 = $FirstName
+    LastName                  = $LastName
+    Location                  = $Location
+    JobTitle                  = $JobTitle
+    Equipment                 = $Equipment
+    CreatedByEmail            = $CreatedByEmail
+    CreatedByDisplayName      = $CreatedByDisplayName
+    PasswordSender            = $PasswordSender
+    LicenseName               = $LicenseName
+    ApprovalWebhookUrl        = $ApprovalWebhookUrl
+    FollowUpAutomationAccount = $FollowUpAutomationAccount
+    FollowUpResourceGroup     = $FollowUpResourceGroup
+    FollowUpRunbook           = $FollowUpRunbook
+    UserPrincipalName         = $upn
+    AutoTaskCompanyId         = $atCompanyId
+    HuduCompanyId             = $huduCompanyId
+    M365Location              = $m365Location
+    AutoTaskLocationId        = $companyLocationId
+    CommunityEmailList        = $communityEmails
+    UserData                  = $respNewUser
+    AutoTaskTicketId          = $respNewTicket.ItemId
+    AutoTaskTicketNumber      = $ticketContent.ticketNumber
+    AutoTaskContactId         = $respNewContact.itemId
+    HuduPasswordId            = $respHuduPw.asset_password.id
+    OneTimeSecretSuccess      = $respOts
+    LicenseData               = $licenseData
+    LicenseApprovalRequired   = $licenseApprovalRequired
 }
 
 $licenseData = Get-LicenseData $LicenseName
 if ($licenseData.ConsumedUnits -lt $licenseData.PrepaidUnits.Enabled) {
     $licenseApprovalRequired = $false
-    $jobTitleParams.Add("AddPax8License", $licenseApprovalRequired)
+    $outputParams.Add("AddPax8License", $licenseApprovalRequired)
 
     $respAssignLicense = Set-MgUserLicense -UserId $upn -AddLicenses @{SkuId = $licenseData.SkuId } -RemoveLicenses @()
     if ($null -eq $respAssignLicense) {
@@ -389,80 +415,55 @@ if ($licenseData.ConsumedUnits -lt $licenseData.PrepaidUnits.Enabled) {
         Write-Output "=> License `"$($LicenseName)`" assigned to $($respAssignLicense.DisplayName)"
     }
 
-    # Schedule JobTitleTasks ================
-    Write-Output ("`nScheduling JobTitleTasks runbook with parameters:`n" + ("=" * 48))
-    Write-Output $jobTitleParams
-    
-    $resourceGroupName = "RG-Dev"
-    $automationAccountName = "Onboarding-Wynnefield"
+    # Schedule follow up runbook ================
     $startTime = (Get-Date).AddMinutes(10).ToString("yyyy-MM-ddTHH:mm:ss")
     $scheduleName = $FirstName + $LastName
     $schedule = New-AzAutomationSchedule -Name $scheduleName -StartTime $startTime -TimeZone "America/New_York" -OneTime `
-        -ResourceGroupName $resourceGroupName -AutomationAccountName $automationAccountName 
-    Write-Output ("One-Time Schedule`n" + ("=" * 32))
-    Write-Output $schedule
+        -ResourceGroupName $FollowUpResourceGroup -AutomationAccountName $FollowUpAutomationAccount 
+    if ($null -eq $schedule) {
+        Write-Error "Failed to schedule follow up runbook" -ErrorAction Stop
+    }
+    else {
+        Write-Output "=> Follow up runbook schedule `"$scheduleName`" created to run once at $startTime"
+    }
     
-    $runbookName = "JobTitleTasks"
-    $scheduleJob = Register-AzAutomationScheduledRunbook -RunbookName $runbookName -ScheduleName $scheduleName `
-        -Parameters $jobTitleParams -ResourceGroupName $resourceGroupName -AutomationAccountName $automationAccountName
-    Write-Output ("Scheduled Runbook Job`n" + ("=" * 32))
-    Write-Output $scheduleJob
+    $scheduleJob = Register-AzAutomationScheduledRunbook -RunbookName $FollowUpRunbook -ScheduleName $scheduleName `
+        -Parameters $outputParams -ResourceGroupName $FollowUpResourceGroup -AutomationAccountName $FollowUpAutomationAccount
+    if ($null -eq $scheduleJob) {
+        Write-Error "Failed to associate follow up runbook `"$FollowUpRunbook`" with schedule `"$scheduleName`"" -ErrorAction Stop
+    }
+    else {
+        Write-Output "=> Follow up runbook `"$FollowUpRunbook`" succesfullyassociated with schedule `"$scheduleName`""
+        Write-Output ("Follow up job details`n" + ("=" * 32))
+        Write-Output $scheduleJob
+    }
 }
 else {
     # Call license approval Logic App, call JobTitle from there
+    Write-Output "=> Approval required to add `"$($LicenseName)`" license subscription for $upn"
     $licenseApprovalRequired = $true
-    $jobTitleParams.Add("AddPax8License", $licenseApprovalRequired)
+    $outputParams.Add("AddPax8License", $licenseApprovalRequired)
     $approvalHeaders = @{
         "Content-Type" = "application/json"
     }
-    $approvalBody = ConvertTo-Json $jobTitleParams
-    Invoke-RestMethod -Uri $ApprovalWebhookUrl -Method Post -Headers $approvalHeaders -Body $approvalBody
+    $approvalBody = ConvertTo-Json $outputParams
+    $respStartApproval = Invoke-RestMethod -Uri $ApprovalWebhookUrl -Method Post -Headers $approvalHeaders -Body $approvalBody
+    if ($null -eq $respStartApproval) {
+        Write-Error "Failed to start license approval logic app" -ErrorAction Stop
+    }
+    else {
+        Write-Output "=> Started license approval logic app"
+        Write-Output ("License approval job details`n" + ("=" * 32))
+        Write-Output $respStartApproval
+    }
 }
 
 # Summary Output ==================
-$InputParameters = @{
-    AppId                 = $AppId
-    TenantId              = $TenantId
-    CertificateThumbprint = $CertificateThumbprint
-    CompanyName           = $CompanyName
-    Domain                = $Domain
-    SpSiteName            = $SpSiteName
-    SpListName            = $SpListName
-    FirstName             = $FirstName
-    LastName              = $LastName
-    Location              = $Location
-    JobTitle              = $JobTitle
-    Equipment             = $Equipment
-    CreatedByEmail        = $CreatedByEmail
-    CreatedByDisplayName  = $CreatedByDisplayName
-    PasswordSender        = $PasswordSender
-    LicenseName           = $LicenseName
-    ApprovalWebhookUrl    = $ApprovalWebhookUrl
-}
-
-$Outputs = @{
-    UserPrincipalName       = $upn
-    AutoTaskCompanyId       = $atCompanyId
-    HuduCompanyId           = $huduCompanyId
-    M365Location            = $m365Location
-    AutoTaskLocationId      = $companyLocationId
-    CommunityEmailList      = $communityEmails
-    UserData                = $respNewUser
-    AutoTaskTicketId        = $respNewTicket.ItemId
-    AutoTaskTicketNumber    = $ticketContent.ticketNumber
-    AutoTaskContactId       = $respNewContact.itemId
-    HuduPasswordId          = $respHuduPw.asset_password.id
-    OneTimeSecretSuccess    = $respOts
-    LicenseData             = $licenseData
-    LicenseApprovalRequired = $licenseApprovalRequired
-}
-
-Write-Output ("`nInput Parameters`n" + ("=" * 32))
-Write-Output $InputParameters
-Write-Output ("`nOutputs`n" + ("=" * 32))
-Write-Output $Outputs
-Write-Output ("`nUser Data`n" + ("=" * 32))
-Write-Output $Outputs.UserData
+Write-Output ("`n" + ("=" * 32))
+Write-Output ("Job Summary`n" + ("=" * 32))
+Write-Output $outputParams
+Write-Output ("`nNew User Data`n" + ("=" * 32))
+Write-Output $outputParams.UserData
 
 Disconnect-MgGraph | Out-Null
 Disconnect-AzAccount | Out-Null
