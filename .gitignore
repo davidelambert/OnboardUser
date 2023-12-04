@@ -1,3 +1,6 @@
 .vscode/
 stash/
 ref/
+
+*.cer
+*.pfx
