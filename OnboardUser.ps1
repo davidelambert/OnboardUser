@@ -366,40 +366,22 @@ else {
 
 # License provisioning and Follow up runbook scheduling ================
 $outputParams = [System.Collections.IDictionary]@{
-    AppId                     = $AppId
-    TenantId                  = $TenantId
-    CertificateThumbprint     = $CertificateThumbprint
-    CompanyName               = $CompanyName
-    Domain                    = $Domain
-    SpSiteName                = $SpSiteName
-    SpListName                = $SpListName
-    FirstName                 = $FirstName
-    LastName                  = $LastName
-    Location                  = $Location
-    JobTitle                  = $JobTitle
-    Equipment                 = $Equipment
-    CreatedByEmail            = $CreatedByEmail
-    CreatedByDisplayName      = $CreatedByDisplayName
-    PasswordSender            = $PasswordSender
-    LicenseName               = $LicenseName
-    ApprovalWebhookUrl        = $ApprovalWebhookUrl
-    FollowUpAutomationAccount = $FollowUpAutomationAccount
-    FollowUpResourceGroup     = $FollowUpResourceGroup
-    FollowUpRunbook           = $FollowUpRunbook
-    UserPrincipalName         = $upn
-    AutoTaskCompanyId         = $atCompanyId
-    HuduCompanyId             = $huduCompanyId
-    M365Location              = $m365Location
-    AutoTaskLocationId        = $companyLocationId
-    LocationEmails            = $LocationEmails
-    UserData                  = $respNewUser
-    AutoTaskTicketId          = $respNewTicket.ItemId
-    AutoTaskTicketNumber      = $ticketContent.ticketNumber
-    AutoTaskContactId         = $respNewContact.itemId
-    HuduPasswordId            = $respHuduPw.asset_password.id
-    OneTimeSecretSuccess      = $respOts
-    LicenseData               = $licenseData
-    LicenseApprovalRequired   = $licenseApprovalRequired
+    AppId                 = $AppId
+    TenantId              = $TenantId
+    CertificateThumbprint = $CertificateThumbprint
+    AutoTaskTicketId      = $respNewTicket.ItemId
+    AutoTaskTicketNumber  = $ticketContent.ticketNumber
+    FirstName             = $FirstName
+    LastName              = $LastName
+    UserPrincipalName     = $upn
+    JobTitle              = $JobTitle
+    Location              = $Location
+    LocationEmails        = $LocationEmails
+    Equipment             = $Equipment
+    CreatedByEmail        = $CreatedByEmail
+    CreatedByDisplayName  = $CreatedByDisplayName
+    LicenseName           = $LicenseName
+    CompanyName           = $CompanyName
 }
 
 $licenseData = Get-LicenseData $LicenseName
