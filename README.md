@@ -16,7 +16,7 @@
     - Install any other modules necessary for custom tenant actions
 
 1. Navigate to the _Automation Accounts => \[Automation Account name\] => Identity_ tab
-    - Enable the system assigned managed identity for the account
+    - Ensure that the Status of the system assigned managed identity for the account is set to "On"
     - Click the _Azure role assignments_ button and enable the following Azure RBAC role assignments for the resource group to which the Automation Account belongs:
         - Virtual Machine Contributor
         - Automation Contributor
@@ -46,43 +46,27 @@
 
 1. Run the `SetupGraph.ps1` script on a local machine, supplying the Automation Account name
     - Example: `.\SetupGraph.ps1 'Onboarding-ExampleCorp'`
-    - When prompted with a web-based Entra ID login, sign in as a Global Administrator in the **client's** tenant
+    - When prompted with a web-based Entra ID login, sign in as an Administrator in the **provider's** tenant
+    - When prompted, consent to the requested permissions on behalf of your organization
     - This script will authorize the Automation Account's Managed Identity to use the Microsoft Graph API as an application
 
-1. Navigate to the _App registration => Manifest_ tab
-    - In the JSON manifest, locate the `"requiredResourceAccess"` array
-        - This array should already have one top-level object with several nested objects. These were added by the `SetupGraph.ps1` script in the previous step.
-        - Add the following JSON object to the `"requiredResourceAccess"` array, either before or after the existing object:
-            ```
-            {
-                "resourceAppId": "00000002-0000-0ff1-ce00-000000000000",
-                "resourceAccess": [
-                    {
-                        "id": "dc50a0fb-09a3-484d-be87-e023b12c6440",
-                        "type": "Role"
-                    }
-                ]
-            }
-            ```
-        - Click "Save"
-
-1. Run the `GenerateCertificate.ps1` script
+1. Run the `GenerateCertificate.ps1` script on a local machine.
     - When prompted for credentials:
         - Theoretically, any username and password will work. However, it is strongly recommended to enter a username matching an administrator in the client organization.
-        - Note the password and store the credentials securely. The password will be used in firther steps.
+        - Note the password and store the credentials securely. The password will be used in further steps.
     - The script generates public (`.cer`) and private (`.pfx`) security certificates in the supplied directory.
 
-1. In the client's Azure tenant, navigate to the _App registrations => Certificates & secrets_ tab
+1. In the **client's** Azure tenant, navigate to the _App registrations => Certificates & secrets_ tab
     - On the "Certificates" display tab, click "Upload certificate"
     - Upload the public `.cer` security certificate generated above by `GenerateCertificate.ps1`
     - Note down the certificate's Thumbprint. This is used along with the app registration's Application ID and Tenant ID to allow secure programmatic access by the Automation Account's Managed Identity.
 
-1. In the client's Azure tenant, navigate to the _Automation Accounts => OnboardingAutomation => Certificates_ tab
+1. In the **provider's** Azure tenant, navigate to the _Automation Accounts => OnboardingAutomation => Certificates_ tab
     - Click "Add a certificate"
     - Upload the private `.pfx` security certificate generated above by `GenerateCertificate.ps1` and enter the password you noted when prompted
-    - Pairing the public `.cer` certificate in the App Registration and the private `.pfx` certificate in the Automation Account is 
+    - Pairing the public `.cer` certificate in the client's App Registration and the private `.pfx` certificate in the provider's Automation Account is what allows cross-tenant authentication of the Automation Account's Managed Identity
 
-1. In the client's Azure tenant, navigate to the _Entra ID => Roles and administrators_ tab
+1. In the **client's** Azure tenant, navigate to the _Entra ID => Roles and administrators_ tab
     - Locate and click on the "Exchange Administrator" role
     - Click the "Add assignments" button
     - Add the Azure registered application (for example, `OnboardingApp`)
