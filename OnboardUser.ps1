@@ -365,82 +365,6 @@ else {
 
 
 # License provisioning and Follow up runbook scheduling ================
-$followUpParams = [System.Collections.IDictionary]@{
-    AppId                 = $AppId
-    TenantId              = $TenantId
-    CertificateThumbprint = $CertificateThumbprint
-    AutoTaskTicketId      = $respNewTicket.ItemId
-    AutoTaskTicketNumber  = $ticketContent.ticketNumber
-    FirstName             = $FirstName
-    LastName              = $LastName
-    UserPrincipalName     = $upn
-    JobTitle              = $JobTitle
-    Location              = $Location
-    LocationEmails        = $LocationEmails
-    Equipment             = $Equipment
-    CreatedByEmail        = $CreatedByEmail
-    CreatedByDisplayName  = $CreatedByDisplayName
-    LicenseName           = $LicenseName
-    CompanyName           = $CompanyName
-}
-
-$licenseData = Get-LicenseData $LicenseName
-if ($licenseData.ConsumedUnits -lt $licenseData.PrepaidUnits.Enabled) {
-    $licenseApprovalRequired = $false
-    $followUpParams.Add("AddPax8License", $licenseApprovalRequired)
-
-    $respAssignLicense = Set-MgUserLicense -UserId $upn -AddLicenses @{SkuId = $licenseData.SkuId } -RemoveLicenses @()
-    if ($null -eq $respAssignLicense) {
-        Write-Error "Failed to assign license `"$($LicenseName)`" to $($upn)" -ErrorAction Stop
-    }
-    else {
-        Write-Output "=> License `"$($LicenseName)`" assigned to $($respAssignLicense.DisplayName)"
-    }
-
-    # Schedule follow up runbook ================
-    $startTime = (Get-Date).AddMinutes(10).ToString("yyyy-MM-ddTHH:mm:ss")
-    $scheduleName = $FirstName + $LastName
-    $schedule = New-AzAutomationSchedule -Name $scheduleName -StartTime $startTime -TimeZone "America/New_York" -OneTime `
-        -ResourceGroupName $FollowUpResourceGroup -AutomationAccountName $FollowUpAutomationAccount 
-    if ($null -eq $schedule) {
-        Write-Error "Failed to schedule follow up runbook" -ErrorAction Stop
-    }
-    else {
-        Write-Output "=> Follow up runbook schedule `"$scheduleName`" created to run once at $startTime"
-    }
-    
-    $scheduleJob = Register-AzAutomationScheduledRunbook -RunbookName $FollowUpRunbook -ScheduleName $scheduleName `
-        -Parameters $followUpParams -ResourceGroupName $FollowUpResourceGroup -AutomationAccountName $FollowUpAutomationAccount
-    if ($null -eq $scheduleJob) {
-        Write-Error "Failed to associate follow up runbook `"$FollowUpRunbook`" with schedule `"$scheduleName`"" -ErrorAction Stop
-    }
-    else {
-        Write-Output "=> Follow up runbook `"$FollowUpRunbook`" succesfullyassociated with schedule `"$scheduleName`""
-        Write-Output ("Follow up job details`n" + ("=" * 32))
-        Write-Output $scheduleJob
-    }
-}
-else {
-    # Call license approval Logic App, call JobTitle from there
-    Write-Output "=> Approval required to add `"$($LicenseName)`" license subscription for $upn"
-    $licenseApprovalRequired = $true
-    $followUpParams.Add("AddPax8License", $licenseApprovalRequired)
-    $approvalHeaders = @{
-        "Content-Type" = "application/json"
-    }
-    $approvalBody = ConvertTo-Json $followUpParams
-    $respStartApproval = Invoke-RestMethod -Uri $ApprovalWebhookUrl -Method Post -Headers $approvalHeaders -Body $approvalBody
-    if ($null -eq $respStartApproval) {
-        Write-Error "Failed to start license approval logic app" -ErrorAction Stop
-    }
-    else {
-        Write-Output "=> Started license approval logic app"
-        Write-Output ("License approval job details`n" + ("=" * 32))
-        Write-Output $respStartApproval
-    }
-}
-
-# Summary Output ==================
 $outputParams = [System.Collections.IDictionary]@{
     AppId                     = $AppId
     TenantId                  = $TenantId
@@ -475,10 +399,67 @@ $outputParams = [System.Collections.IDictionary]@{
     HuduPasswordId            = $respHuduPw.asset_password.id
     OneTimeSecretSuccess      = $respOts
     LicenseData               = $licenseData
-    LicenseApprovalRequired   = $licenseApprovalRequired
 }
-Write-Output ("`n" + ("=" * 32))
-Write-Output ("Job Summary`n" + ("=" * 32))
+
+$licenseData = Get-LicenseData $LicenseName
+if ($licenseData.ConsumedUnits -lt $licenseData.PrepaidUnits.Enabled) {
+    $licenseApprovalRequired = $false
+    $outputParams.Add("AddPax8License", $licenseApprovalRequired)
+
+    $respAssignLicense = Set-MgUserLicense -UserId $upn -AddLicenses @{SkuId = $licenseData.SkuId } -RemoveLicenses @()
+    if ($null -eq $respAssignLicense) {
+        Write-Error "Failed to assign license `"$($LicenseName)`" to $($upn)" -ErrorAction Stop
+    }
+    else {
+        Write-Output "=> License `"$($LicenseName)`" assigned to $($respAssignLicense.DisplayName)"
+    }
+
+    # Schedule follow up runbook ================
+    $startTime = (Get-Date).AddMinutes(10).ToString("yyyy-MM-ddTHH:mm:ss")
+    $scheduleName = $FirstName + $LastName
+    $schedule = New-AzAutomationSchedule -Name $scheduleName -StartTime $startTime -TimeZone "America/New_York" -OneTime `
+        -ResourceGroupName $FollowUpResourceGroup -AutomationAccountName $FollowUpAutomationAccount 
+    if ($null -eq $schedule) {
+        Write-Error "Failed to schedule follow up runbook" -ErrorAction Stop
+    }
+    else {
+        Write-Output "=> Follow up runbook schedule `"$scheduleName`" created to run once at $startTime"
+    }
+    
+    Start-Sleep -Seconds 10
+    $scheduleJob = Register-AzAutomationScheduledRunbook -RunbookName $FollowUpRunbook -ScheduleName $scheduleName `
+        -Parameters $outputParams -ResourceGroupName $FollowUpResourceGroup -AutomationAccountName $FollowUpAutomationAccount
+    if ($null -eq $scheduleJob) {
+        Write-Error "Failed to associate follow up runbook `"$FollowUpRunbook`" with schedule `"$scheduleName`"" -ErrorAction Stop
+    }
+    else {
+        Write-Output "=> Follow up runbook `"$FollowUpRunbook`" succesfullyassociated with schedule `"$scheduleName`""
+        Write-Output ("Follow up job details`n" + ("=" * 32))
+        Write-Output $scheduleJob
+    }
+}
+else {
+    # Call license approval Logic App, call JobTitle from there
+    Write-Output "=> Approval required to add `"$($LicenseName)`" license subscription for $upn"
+    $licenseApprovalRequired = $true
+    $outputParams.Add("AddPax8License", $licenseApprovalRequired)
+    $approvalHeaders = @{
+        "Content-Type" = "application/json"
+    }
+    $approvalBody = ConvertTo-Json $outputParams
+    $respStartApproval = Invoke-RestMethod -Uri $ApprovalWebhookUrl -Method Post -Headers $approvalHeaders -Body $approvalBody
+    if ($null -eq $respStartApproval) {
+        Write-Error "Failed to start license approval logic app" -ErrorAction Stop
+    }
+    else {
+        Write-Output "=> Started license approval logic app"
+        Write-Output ("License approval job details`n" + ("=" * 32))
+        Write-Output $respStartApproval
+    }
+}
+
+# Summary Output ==================
+Write-Output (("=" * 32) + "`nJob Summary`n" + ("=" * 32))
 Write-Output $outputParams
 Write-Output ("`nNew User Data`n" + ("=" * 32))
 Write-Output $outputParams.UserData
