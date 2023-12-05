@@ -398,13 +398,13 @@ $outputParams = [System.Collections.IDictionary]@{
     AutoTaskContactId         = $respNewContact.itemId
     HuduPasswordId            = $respHuduPw.asset_password.id
     OneTimeSecretSuccess      = $respOts
-    LicenseData               = $licenseData
 }
 
 $licenseData = Get-LicenseData $LicenseName
+$outputParams.Add("LicenseData", $licenseData)
+
 if ($licenseData.ConsumedUnits -lt $licenseData.PrepaidUnits.Enabled) {
-    $licenseApprovalRequired = $false
-    $outputParams.Add("AddPax8License", $licenseApprovalRequired)
+    $outputParams.Add("AddPax8License", $false)
 
     $respAssignLicense = Set-MgUserLicense -UserId $upn -AddLicenses @{SkuId = $licenseData.SkuId } -RemoveLicenses @()
     if ($null -eq $respAssignLicense) {
@@ -426,7 +426,6 @@ if ($licenseData.ConsumedUnits -lt $licenseData.PrepaidUnits.Enabled) {
         Write-Output "=> Follow up runbook schedule `"$scheduleName`" created to run once at $startTime"
     }
     
-    Start-Sleep -Seconds 10
     $scheduleJob = Register-AzAutomationScheduledRunbook -RunbookName $FollowUpRunbook -ScheduleName $scheduleName `
         -Parameters $outputParams -ResourceGroupName $FollowUpResourceGroup -AutomationAccountName $FollowUpAutomationAccount
     if ($null -eq $scheduleJob) {
@@ -441,12 +440,11 @@ if ($licenseData.ConsumedUnits -lt $licenseData.PrepaidUnits.Enabled) {
 else {
     # Call license approval Logic App, call JobTitle from there
     Write-Output "=> Approval required to add `"$($LicenseName)`" license subscription for $upn"
-    $licenseApprovalRequired = $true
-    $outputParams.Add("AddPax8License", $licenseApprovalRequired)
+    $outputParams.Add("AddPax8License", $true)
     $approvalHeaders = @{
         "Content-Type" = "application/json"
     }
-    $approvalBody = ConvertTo-Json $outputParams
+    $approvalBody = ConvertTo-Json $outputParams -Depth 5
     $respStartApproval = Invoke-RestMethod -Uri $ApprovalWebhookUrl -Method Post -Headers $approvalHeaders -Body $approvalBody
     if ($null -eq $respStartApproval) {
         Write-Error "Failed to start license approval logic app" -ErrorAction Stop
