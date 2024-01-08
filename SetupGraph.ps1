@@ -15,7 +15,7 @@ $graphScopes = @(
 )
 
 # Connect as an Administrator, NOT the Automation account
-Connect-MgGraph -Scopes "Application.Read.All", "AppRoleAssignment.ReadWrite.All,RoleManagement.ReadWrite.Directory" -NoWelcome
+Connect-MgGraph -Scopes "Application.ReadWrite.All,AppRoleAssignment.ReadWrite.All,RoleManagement.ReadWrite.Directory" -NoWelcome
 $managedIdentityId = (Get-MgServicePrincipal -Filter "displayName eq '$AutomationAccountName'").Id
 $graphApp = Get-MgServicePrincipal -Filter "AppId eq '00000003-0000-0000-c000-000000000000'" # always this GUID
 foreach ($scope in $graphScopes) {
